@@ -1,0 +1,223 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-categories-and-tags
+      author: queenarts-team
+      comment: Crear tablas de categorías y tags para product-service
+      
+      changes:
+        - createTable:
+            tableName: categories
+            remarks: Categorías de productos (collares, aretes, pulseras, etc.)
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(50)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+                  remarks: ID de categoría (collares, aretes, pulseras, anillos, dijes, sets)
+              
+              - column:
+                  name: name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                  remarks: Nombre visible de la categoría
+              
+              - column:
+                  name: slug
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                    unique: true
+                  remarks: URL-friendly identifier
+              
+              - column:
+                  name: description
+                  type: TEXT
+                  remarks: Descripción de la categoría
+              
+              - column:
+                  name: image_url
+                  type: VARCHAR(500)
+                  remarks: Imagen representativa de la categoría
+              
+              - column:
+                  name: sort_order
+                  type: INTEGER
+                  defaultValue: 0
+                  remarks: Orden de visualización
+              
+              - column:
+                  name: is_active
+                  type: BOOLEAN
+                  defaultValue: true
+                  remarks: Si la categoría está activa
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  remarks: Fecha de creación
+              
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  remarks: Fecha de última actualización
+
+        - createIndex:
+            tableName: categories
+            indexName: idx_categories_slug
+            columns:
+              - column:
+                  name: slug
+
+        - createIndex:
+            tableName: categories
+            indexName: idx_categories_active
+            columns:
+              - column:
+                  name: is_active
+            where: is_active = TRUE
+
+        # Tabla de tags
+        - createTable:
+            tableName: tags
+            remarks: Tags para clasificación de productos y artículos
+            columns:
+              - column:
+                  name: id
+                  type: SERIAL
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              
+              - column:
+                  name: name
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    unique: true
+                  remarks: Nombre del tag
+              
+              - column:
+                  name: slug
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    unique: true
+                  remarks: URL-friendly identifier
+              
+              - column:
+                  name: is_popular
+                  type: BOOLEAN
+                  defaultValue: false
+                  remarks: Si es un tag popular destacado
+              
+              - column:
+                  name: product_count
+                  type: INTEGER
+                  defaultValue: 0
+                  remarks: Conteo denormalizado de productos con este tag
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+
+        - createIndex:
+            tableName: tags
+            indexName: idx_tags_slug
+            columns:
+              - column:
+                  name: slug
+
+        - createIndex:
+            tableName: tags
+            indexName: idx_tags_popular
+            columns:
+              - column:
+                  name: is_popular
+            where: is_popular = TRUE
+
+        # Tipos de colección (lookup table)
+        - createTable:
+            tableName: collection_types
+            remarks: Tipos de colecciones editoriales
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(30)
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: description
+                  type: TEXT
+
+        - insert:
+            tableName: collection_types
+            columns:
+              - column:
+                  name: id
+                  value: emotional
+              - column:
+                  name: name
+                  value: Emocional — Universos narrativos
+              - column:
+                  name: description
+                  value: Colecciones basadas en emociones y significados profundos
+
+        - insert:
+            tableName: collection_types
+            columns:
+              - column:
+                  name: id
+                  value: temporal
+              - column:
+                  name: name
+                  value: Temporal — Momentos específicos
+              - column:
+                  name: description
+                  value: Colecciones para momentos y fechas especiales
+
+        - insert:
+            tableName: collection_types
+            columns:
+              - column:
+                  name: id
+                  value: aesthetic
+              - column:
+                  name: name
+                  value: Estética — Visiones visuales
+              - column:
+                  name: description
+                  value: Colecciones basadas en estética y diseño visual
+
+        - insert:
+            tableName: collection_types
+            columns:
+              - column:
+                  name: id
+                  value: commercial
+              - column:
+                  name: name
+                  value: Comercial — Estrategia de venta
+              - column:
+                  name: description
+                  value: Colecciones para campañas comerciales específicas
+
+      rollback:
+        - dropTable:
+            tableName: collection_types
+        - dropTable:
+            tableName: tags
+        - dropTable:
+            tableName: categories

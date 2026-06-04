@@ -1,0 +1,599 @@
+databaseChangeLog:
+  - changeSet:
+      id: 008-create-orders
+      author: queenarts-team
+      comment: Crear tablas para order-service (órdenes, items, histórico de estados)
+      
+      changes:
+        # Tabla maestra de órdenes
+        - createTable:
+            tableName: orders
+            remarks: Órdenes de compra confirmadas
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(100)
+                  constraints:
+                    primaryKey: true
+                  remarks: ID único de la orden
+              
+              - column:
+                  name: order_number
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    unique: true
+                  remarks: Número de orden legible (QA-2025-00042)
+              
+              - column:
+                  name: user_id
+                  type: VARCHAR(100)
+                  remarks: ID del usuario autenticado (null si fue guest checkout)
+              
+              - column:
+                  name: cart_id
+                  type: VARCHAR(100)
+                  remarks: ID del carrito de origen
+              
+              - column:
+                  name: guest_email
+                  type: VARCHAR(255)
+                  remarks: Email para órdenes de invitado
+              
+              # Estado de la orden
+              - column:
+                  name: status
+                  type: VARCHAR(30)
+                  defaultValue: 'pending'
+                  constraints:
+                    nullable: false
+                  remarks: Estado (pending, confirmed, processing, shipped, delivered, cancelled, refunded)
+              
+              - column:
+                  name: payment_status
+                  type: VARCHAR(30)
+                  defaultValue: 'pending'
+                  constraints:
+                    nullable: false
+                  remarks: Estado de pago (pending, authorized, captured, failed, refunded)
+              
+              # Dirección de envío (snapshot)
+              - column:
+                  name: shipping_address
+                  type: JSONB
+                  constraints:
+                    nullable: false
+                  remarks: Dirección completa en JSON
+              
+              - column:
+                  name: billing_address
+                  type: JSONB
+                  remarks: Dirección de facturación (si difiere)
+              
+              # Costos
+              - column:
+                  name: subtotal
+                  type: DECIMAL(12,2)
+                  constraints:
+                    nullable: false
+                  remarks: Total de items antes de descuentos
+              
+              - column:
+                  name: discount_amount
+                  type: DECIMAL(12,2)
+                  defaultValue: 0
+                  remarks: Descuento aplicado
+              
+              - column:
+                  name: discount_code
+                  type: VARCHAR(50)
+                  remarks: Código de cupón usado
+              
+              - column:
+                  name: shipping_cost
+                  type: DECIMAL(12,2)
+                  constraints:
+                    nullable: false
+                  remarks: Costo de envío
+              
+              - column:
+                  name: shipping_method
+                  type: VARCHAR(100)
+                  remarks: Método de envío seleccionado
+              
+              - column:
+                  name: tax_amount
+                  type: DECIMAL(12,2)
+                  defaultValue: 0
+                  remarks: Impuestos (IVA 12% Ecuador)
+              
+              - column:
+                  name: total
+                  type: DECIMAL(12,2)
+                  constraints:
+                    nullable: false
+                  remarks: Total final a pagar
+              
+              - column:
+                  name: currency
+                  type: VARCHAR(3)
+                  defaultValue: 'USD'
+                  constraints:
+                    nullable: false
+              
+              # Pago
+              - column:
+                  name: payment_method
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                  remarks: Método (card, transfer, cash, paypal)
+              
+              - column:
+                  name: payment_transaction_id
+                  type: VARCHAR(200)
+                  remarks: ID de transacción externa (Stripe, etc.)
+              
+              # Envío
+              - column:
+                  name: tracking_number
+                  type: VARCHAR(100)
+                  remarks: Número de tracking
+              
+              - column:
+                  name: tracking_url
+                  type: VARCHAR(500)
+                  remarks: URL para rastrear envío
+              
+              - column:
+                  name: carrier
+                  type: VARCHAR(100)
+                  remarks: Transportista (Servientrega, DHL, FedEx)
+              
+              - column:
+                  name: shipped_at
+                  type: TIMESTAMPTZ
+                  remarks: Fecha de envío
+              
+              - column:
+                  name: delivered_at
+                  type: TIMESTAMPTZ
+                  remarks: Fecha de entrega confirmada
+              
+              - column:
+                  name: estimated_delivery
+                  type: DATE
+                  remarks: Fecha estimada de entrega
+              
+              # Notas
+              - column:
+                  name: customer_notes
+                  type: TEXT
+                  remarks: Notas del cliente
+              
+              - column:
+                  name: internal_notes
+                  type: TEXT
+                  remarks: Notas internas del equipo
+              
+              - column:
+                  name: gift_message
+                  type: TEXT
+                  remarks: Mensaje de regalo para incluir en paquete
+              
+              - column:
+                  name: is_gift
+                  type: BOOLEAN
+                  defaultValue: false
+                  remarks: Si es un regalo (envoltura especial)
+              
+              # Fechas
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: cancelled_at
+                  type: TIMESTAMPTZ
+                  remarks: Fecha de cancelación
+              
+              - column:
+                  name: cancelled_reason
+                  type: TEXT
+                  remarks: Razón de cancelación
+              
+              - column:
+                  name: ip_address
+                  type: VARCHAR(45)
+                  remarks: IP desde donde se realizó la orden
+
+        - addCheckConstraint:
+            tableName: orders
+            constraintName: chk_orders_status
+            columnName: status
+            expression: status IN ('pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded')
+
+        - addCheckConstraint:
+            tableName: orders
+            constraintName: chk_orders_payment_status
+            columnName: payment_status
+            expression: payment_status IN ('pending', 'authorized', 'captured', 'failed', 'refunded')
+
+        - createIndex:
+            tableName: orders
+            indexName: idx_orders_number
+            columns:
+              - column:
+                  name: order_number
+
+        - createIndex:
+            tableName: orders
+            indexName: idx_orders_user
+            columns:
+              - column:
+                  name: user_id
+            where: user_id IS NOT NULL
+
+        - createIndex:
+            tableName: orders
+            indexName: idx_orders_status
+            columns:
+              - column:
+                  name: status
+
+        - createIndex:
+            tableName: orders
+            indexName: idx_orders_payment
+            columns:
+              - column:
+                  name: payment_status
+
+        - createIndex:
+            tableName: orders
+            indexName: idx_orders_created
+            columns:
+              - column:
+                  name: created_at
+            descending: true
+
+        - createIndex:
+            tableName: orders
+            indexName: idx_orders_tracking
+            columns:
+              - column:
+                  name: tracking_number
+            where: tracking_number IS NOT NULL
+
+        - sql:
+            sql: |
+              CREATE TRIGGER update_orders_updated_at 
+              BEFORE UPDATE ON orders
+              FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+        # Items de la orden (snapshot completo)
+        - createTable:
+            tableName: order_items
+            remarks: Items individuales de cada orden (snapshot inmutable)
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: uuid_generate_v4()
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: order_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_order_items_order
+                    references: orders(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: product_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                  remarks: Referencia al producto
+              
+              - column:
+                  name: sku
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                  remarks: SKU al momento de la orden
+              
+              - column:
+                  name: name
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+                  remarks: Nombre del producto (snapshot)
+              
+              - column:
+                  name: description
+                  type: TEXT
+                  remarks: Descripción corta (snapshot)
+              
+              - column:
+                  name: price
+                  type: DECIMAL(10,2)
+                  constraints:
+                    nullable: false
+                  remarks: Precio unitario pagado
+              
+              - column:
+                  name: original_price
+                  type: DECIMAL(10,2)
+                  remarks: Precio original antes de descuento
+              
+              - column:
+                  name: currency
+                  type: VARCHAR(3)
+                  defaultValue: 'USD'
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: quantity
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: subtotal
+                  type: DECIMAL(12,2)
+                  constraints:
+                    nullable: false
+                  remarks: price * quantity
+              
+              - column:
+                  name: discount_amount
+                  type: DECIMAL(12,2)
+                  defaultValue: 0
+              
+              - column:
+                  name: total
+                  type: DECIMAL(12,2)
+                  constraints:
+                    nullable: false
+                  remarks: subtotal - discount_amount
+              
+              - column:
+                  name: image_url
+                  type: VARCHAR(500)
+                  remarks: URL de imagen (snapshot)
+              
+              - column:
+                  name: product_data
+                  type: JSONB
+                  defaultValue: '{}'
+                  remarks: Snapshot completo del producto (material, piedra, etc.)
+
+        - addCheckConstraint:
+            tableName: order_items
+            constraintName: chk_order_items_quantity
+            columnName: quantity
+            expression: quantity > 0
+
+        - createIndex:
+            tableName: order_items
+            indexName: idx_order_items_order
+            columns:
+              - column:
+                  name: order_id
+
+        - createIndex:
+            tableName: order_items
+            indexName: idx_order_items_product
+            columns:
+              - column:
+                  name: product_id
+
+        # Histórico de estados de orden (audit trail)
+        - createTable:
+            tableName: order_status_history
+            remarks: Registro inmutable de todos los cambios de estado
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: uuid_generate_v4()
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: order_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_status_history_order
+                    references: orders(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: previous_status
+                  type: VARCHAR(30)
+                  remarks: Estado anterior
+              
+              - column:
+                  name: new_status
+                  type: VARCHAR(30)
+                  constraints:
+                    nullable: false
+                  remarks: Nuevo estado
+              
+              - column:
+                  name: changed_by
+                  type: VARCHAR(100)
+                  remarks: Usuario o sistema que cambió el estado
+              
+              - column:
+                  name: notes
+                  type: TEXT
+                  remarks: Notas del cambio
+              
+              - column:
+                  name: metadata
+                  type: JSONB
+                  defaultValue: '{}'
+                  remarks: Datos adicionales (tracking, carrier, etc.)
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+
+        - createIndex:
+            tableName: order_status_history
+            indexName: idx_status_history_order
+            columns:
+              - column:
+                  name: order_id
+              - column:
+                  name: created_at
+            descending:
+              - false
+              - true
+
+        # Facturas/Recibos
+        - createTable:
+            tableName: invoices
+            remarks: Facturas generadas para órdenes
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(100)
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: order_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_invoices_order
+                    references: orders(id)
+              
+              - column:
+                  name: invoice_number
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                    unique: true
+                  remarks: Número de factura fiscal (Ecuador)
+              
+              - column:
+                  name: customer_name
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: customer_id_number
+                  type: VARCHAR(20)
+                  remarks: Cédula o RUC del cliente
+              
+              - column:
+                  name: subtotal
+                  type: DECIMAL(12,2)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: tax_amount
+                  type: DECIMAL(12,2)
+                  constraints:
+                    nullable: false
+                  remarks: IVA 12%
+              
+              - column:
+                  name: total
+                  type: DECIMAL(12,2)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: pdf_url
+                  type: VARCHAR(500)
+                  remarks: URL del PDF de la factura
+              
+              - column:
+                  name: sri_authorization
+                  type: VARCHAR(100)
+                  remarks: Número de autorización SRI (Ecuador)
+              
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  defaultValue: 'generated'
+                  remarks: Estado (generated, sent, voided)
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+
+        - createIndex:
+            tableName: invoices
+            indexName: idx_invoices_order
+            columns:
+              - column:
+                  name: order_id
+
+        - createIndex:
+            tableName: invoices
+            indexName: idx_invoices_number
+            columns:
+              - column:
+                  name: invoice_number
+
+        # Vista de órdenes con resumen
+        - createView:
+            viewName: order_summary
+            remarks: Resumen de órdenes con conteos
+            selectQuery: |
+              SELECT 
+                o.id,
+                o.order_number,
+                o.user_id,
+                o.status,
+                o.payment_status,
+                o.total,
+                o.currency,
+                o.created_at,
+                COUNT(oi.id) as item_count,
+                SUM(oi.quantity) as total_items,
+                o.shipping_carrier,
+                o.tracking_number
+              FROM orders o
+              LEFT JOIN order_items oi ON o.id = oi.order_id
+              GROUP BY o.id, o.order_number, o.user_id, o.status, o.payment_status, o.total, o.currency, o.created_at, o.shipping_carrier, o.tracking_number
+
+      rollback:
+        - dropView:
+            viewName: order_summary
+        - dropTable:
+            tableName: invoices
+        - dropTable:
+            tableName: order_status_history
+        - dropTable:
+            tableName: order_items
+        - sql:
+            sql: DROP TRIGGER IF EXISTS update_orders_updated_at ON orders
+        - dropTable:
+            tableName: orders

@@ -1,0 +1,106 @@
+plugins {
+    id 'java'
+    id 'org.liquibase.gradle' version '2.2.0'
+}
+
+group = 'com.queenarts'
+version = '1.0.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    liquibaseRuntime 'org.liquibase:liquibase-core:4.25.0'
+    liquibaseRuntime 'org.postgresql:postgresql:42.7.1'
+    liquibaseRuntime 'info.picocli:picocli:4.7.5'
+}
+
+// Configuration for each database
+ext {
+    productDb = [
+        url: System.getenv('PRODUCT_DB_URL') ?: 'jdbc:postgresql://localhost:5433/queenarts_products',
+        username: System.getenv('PRODUCT_DB_USER') ?: 'queenarts',
+        password: System.getenv('PRODUCT_DB_PASSWORD') ?: '',
+        changelogFile: 'product/db.changelog-master.xml'
+    ]
+    
+    collectionDb = [
+        url: System.getenv('COLLECTION_DB_URL') ?: 'jdbc:postgresql://localhost:5434/queenarts_collections',
+        username: System.getenv('COLLECTION_DB_USER') ?: 'queenarts',
+        password: System.getenv('COLLECTION_DB_PASSWORD') ?: '',
+        changelogFile: 'collection/db.changelog-master.xml'
+    ]
+    
+    contentDb = [
+        url: System.getenv('CONTENT_DB_URL') ?: 'jdbc:postgresql://localhost:5435/queenarts_content',
+        username: System.getenv('CONTENT_DB_USER') ?: 'queenarts',
+        password: System.getenv('CONTENT_DB_PASSWORD') ?: '',
+        changelogFile: 'content/db.changelog-master.xml'
+    ]
+}
+
+// Liquibase tasks for each database
+tasks.register('updateProduct', org.liquibase.gradle.LiquibaseTask) {
+    group = 'liquibase'
+    description = 'Run migrations for product database'
+    
+    doFirst {
+        liquibase {
+            activities {
+                main {
+                    changelogFile productDb.changelogFile
+                    url productDb.url
+                    username productDb.username
+                    password productDb.password
+                    classpath 'src/main/resources'
+                }
+            }
+        }
+    }
+}
+
+tasks.register('updateCollection', org.liquibase.gradle.LiquibaseTask) {
+    group = 'liquibase'
+    description = 'Run migrations for collection database'
+    
+    doFirst {
+        liquibase {
+            activities {
+                main {
+                    changelogFile collectionDb.changelogFile
+                    url collectionDb.url
+                    username collectionDb.username
+                    password collectionDb.password
+                    classpath 'src/main/resources'
+                }
+            }
+        }
+    }
+}
+
+tasks.register('updateContent', org.liquibase.gradle.LiquibaseTask) {
+    group = 'liquibase'
+    description = 'Run migrations for content database'
+    
+    doFirst {
+        liquibase {
+            activities {
+                main {
+                    changelogFile contentDb.changelogFile
+                    url contentDb.url
+                    username contentDb.username
+                    password contentDb.password
+                    classpath 'src/main/resources'
+                }
+            }
+        }
+    }
+}
+
+// Task to update all databases
+tasks.register('updateAll') {
+    group = 'liquibase'
+    description = 'Run migrations for all databases'
+    dependsOn 'updateProduct', 'updateCollection', 'updateContent'
+}

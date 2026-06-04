@@ -1,0 +1,497 @@
+databaseChangeLog:
+  - changeSet:
+      id: 011-create-notifications
+      author: queenarts-team
+      comment: Crear tablas para notification-service (email, sms, push)
+      
+      changes:
+        # Tabla de plantillas de notificación
+        - createTable:
+            tableName: notification_templates
+            remarks: Plantillas de notificaciones (email, sms, push)
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(100)
+                  constraints:
+                    primaryKey: true
+                  remarks: Código único de la plantilla
+              
+              - column:
+                  name: name
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+                  remarks: Nombre descriptivo
+              
+              - column:
+                  name: type
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+                  remarks: Tipo (email, sms, push, whatsapp)
+              
+              - column:
+                  name: subject
+                  type: VARCHAR(300)
+                  remarks: Asunto (para email)
+              
+              - column:
+                  name: body_html
+                  type: TEXT
+                  remarks: Contenido HTML
+              
+              - column:
+                  name: body_text
+                  type: TEXT
+                  remarks: Contenido texto plano
+              
+              - column:
+                  name: body_sms
+                  type: VARCHAR(500)
+                  remarks: Contenido SMS (corto)
+              
+              - column:
+                  name: variables
+                  type: JSONB
+                  defaultValue: '[]'
+                  remarks: Variables requeridas ["orderNumber", "customerName"]
+              
+              - column:
+                  name: from_name
+                  type: VARCHAR(100)
+                  defaultValue: 'Queen Arts'
+              
+              - column:
+                  name: from_email
+                  type: VARCHAR(255)
+                  defaultValue: 'hola@queenarts.ec'
+              
+              - column:
+                  name: is_active
+                  type: BOOLEAN
+                  defaultValue: true
+              
+              - column:
+                  name: version
+                  type: INTEGER
+                  defaultValue: 1
+                  remarks: Versión de la plantilla
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+              
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+
+        - addCheckConstraint:
+            tableName: notification_templates
+            constraintName: chk_notification_type
+            columnName: type
+            expression: type IN ('email', 'sms', 'push', 'whatsapp')
+
+        - createIndex:
+            tableName: notification_templates
+            indexName: idx_templates_active
+            columns:
+              - column:
+                  name: type
+              - column:
+                  name: is_active
+            where: is_active = true
+
+        - sql:
+            sql: |
+              CREATE TRIGGER update_templates_updated_at 
+              BEFORE UPDATE ON notification_templates
+              FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+        # Tabla de notificaciones enviadas (log)
+        - createTable:
+            tableName: notifications
+            remarks: Registro de todas las notificaciones enviadas
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: uuid_generate_v4()
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: user_id
+                  type: VARCHAR(100)
+                  remarks: Usuario destinatario (null si es guest)
+              
+              - column:
+                  name: type
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+                  remarks: Tipo (email, sms, push, whatsapp)
+              
+              - column:
+                  name: template_id
+                  type: VARCHAR(100)
+                  constraints:
+                    foreignKeyName: fk_notifications_template
+                    references: notification_templates(id)
+              
+              - column:
+                  name: channel
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                  remarks: Canal específico (sendgrid, twilio, fcm)
+              
+              - column:
+                  name: recipient
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                  remarks: Email, teléfono, o token de dispositivo
+              
+              - column:
+                  name: subject
+                  type: VARCHAR(300)
+              
+              - column:
+                  name: content
+                  type: TEXT
+                  remarks: Contenido final enviado
+              
+              - column:
+                  name: data
+                  type: JSONB
+                  defaultValue: '{}'
+                  remarks: Datos/payload de la notificación
+              
+              # Contexto
+              - column:
+                  name: entity_type
+                  type: VARCHAR(50)
+                  remarks: Tipo de entidad relacionada (order, product, cart)
+              
+              - column:
+                  name: entity_id
+                  type: VARCHAR(100)
+                  remarks: ID de la entidad relacionada
+              
+              # Estado de envío
+              - column:
+                  name: status
+                  type: VARCHAR(30)
+                  defaultValue: 'pending'
+                  constraints:
+                    nullable: false
+                  remarks: Estado (pending, sent, delivered, opened, clicked, failed, bounced)
+              
+              - column:
+                  name: provider_message_id
+                  type: VARCHAR(200)
+                  remarks: ID del mensaje en el proveedor
+              
+              - column:
+                  name: provider_response
+                  type: JSONB
+                  defaultValue: '{}'
+                  remarks: Respuesta completa del proveedor
+              
+              - column:
+                  name: error_message
+                  type: TEXT
+                  remarks: Mensaje de error si falló
+              
+              - column:
+                  name: retry_count
+                  type: INTEGER
+                  defaultValue: 0
+              
+              # Timestamps de interacción
+              - column:
+                  name: sent_at
+                  type: TIMESTAMPTZ
+              
+              - column:
+                  name: delivered_at
+                  type: TIMESTAMPTZ
+              
+              - column:
+                  name: opened_at
+                  type: TIMESTAMPTZ
+              
+              - column:
+                  name: clicked_at
+                  type: TIMESTAMPTZ
+              
+              - column:
+                  name: ip_address
+                  type: VARCHAR(45)
+                  remarks: IP donde se abrió (tracking pixel)
+              
+              - column:
+                  name: user_agent
+                  type: TEXT
+              
+              # Metadata
+              - column:
+                  name: scheduled_at
+                  type: TIMESTAMPTZ
+                  remarks: Cuándo está programado (si aplica)
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+              
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+
+        - addCheckConstraint:
+            tableName: notifications
+            constraintName: chk_notification_status
+            columnName: status
+            expression: status IN ('pending', 'queued', 'sent', 'delivered', 'opened', 'clicked', 'failed', 'bounced', 'complained', 'unsubscribed')
+
+        - createIndex:
+            tableName: notifications
+            indexName: idx_notifications_user
+            columns:
+              - column:
+                  name: user_id
+              - column:
+                  name: created_at
+            descending:
+              - false
+              - true
+
+        - createIndex:
+            tableName: notifications
+            indexName: idx_notifications_status
+            columns:
+              - column:
+                  name: status
+              - column:
+                  name: created_at
+            descending:
+              - false
+              - true
+
+        - createIndex:
+            tableName: notifications
+            indexName: idx_notifications_entity
+            columns:
+              - column:
+                  name: entity_type
+              - column:
+                  name: entity_id
+
+        - createIndex:
+            tableName: notifications
+            indexName: idx_notifications_template
+            columns:
+              - column:
+                  name: template_id
+              - column:
+                  name: created_at
+            descending:
+              - false
+              - true
+
+        - createIndex:
+            tableName: notifications
+            indexName: idx_notifications_scheduled
+            columns:
+              - column:
+                  name: scheduled_at
+            where: status = 'pending' AND scheduled_at IS NOT NULL
+
+        - sql:
+            sql: |
+              CREATE TRIGGER update_notifications_updated_at 
+              BEFORE UPDATE ON notifications
+              FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+        # Tabla de preferencias de notificación por usuario
+        - createTable:
+            tableName: user_notification_preferences
+            remarks: Preferencias de notificación por canal
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: uuid_generate_v4()
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: user_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_prefs_user
+                    references: user_profiles(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: channel
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+                  remarks: Canal (email, sms, push)
+              
+              - column:
+                  name: is_enabled
+                  type: BOOLEAN
+                  defaultValue: true
+              
+              - column:
+                  name: event_types
+                  type: JSONB
+                  defaultValue: '[]'
+                  remarks: Tipos de eventos suscritos
+              
+              - column:
+                  name: quiet_hours_start
+                  type: TIME
+                  remarks: Inicio horario de no molestar
+              
+              - column:
+                  name: quiet_hours_end
+                  type: TIME
+                  remarks: Fin horario de no molestar
+              
+              - column:
+                  name: timezone
+                  type: VARCHAR(50)
+                  defaultValue: 'America/Guayaquil'
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+              
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+
+        - addCheckConstraint:
+            tableName: user_notification_preferences
+            constraintName: chk_prefs_channel
+            columnName: channel
+            expression: channel IN ('email', 'sms', 'push')
+
+        - createIndex:
+            tableName: user_notification_preferences
+            indexName: idx_prefs_user_channel
+            columns:
+              - column:
+                  name: user_id
+              - column:
+                  name: channel
+            unique: true
+
+        - sql:
+            sql: |
+              CREATE TRIGGER update_prefs_updated_at 
+              BEFORE UPDATE ON user_notification_preferences
+              FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+        # Tabla de tokens de dispositivo (para push notifications)
+        - createTable:
+            tableName: device_tokens
+            remarks: Tokens FCM/APNs para push notifications
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: uuid_generate_v4()
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: user_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_tokens_user
+                    references: user_profiles(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: token
+                  type: VARCHAR(500)
+                  constraints:
+                    nullable: false
+                  remarks: Token FCM o APNs
+              
+              - column:
+                  name: platform
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+                  remarks: Plataforma (ios, android, web)
+              
+              - column:
+                  name: device_name
+                  type: VARCHAR(200)
+                  remarks: Nombre del dispositivo
+              
+              - column:
+                  name: app_version
+                  type: VARCHAR(50)
+              
+              - column:
+                  name: is_active
+                  type: BOOLEAN
+                  defaultValue: true
+              
+              - column:
+                  name: last_used_at
+                  type: TIMESTAMPTZ
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+
+        - createIndex:
+            tableName: device_tokens
+            indexName: idx_tokens_user
+            columns:
+              - column:
+                  name: user_id
+              - column:
+                  name: is_active
+            where: is_active = true
+
+        - createIndex:
+            tableName: device_tokens
+            indexName: idx_tokens_token
+            columns:
+              - column:
+                  name: token
+            unique: true
+
+      rollback:
+        - dropTable:
+            tableName: device_tokens
+        - sql:
+            sql: DROP TRIGGER IF EXISTS update_prefs_updated_at ON user_notification_preferences
+        - dropTable:
+            tableName: user_notification_preferences
+        - sql:
+            sql: DROP TRIGGER IF EXISTS update_notifications_updated_at ON notifications
+        - dropTable:
+            tableName: notifications
+        - sql:
+            sql: DROP TRIGGER IF EXISTS update_templates_updated_at ON notification_templates
+        - dropTable:
+            tableName: notification_templates

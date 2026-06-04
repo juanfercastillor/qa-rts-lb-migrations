@@ -1,0 +1,380 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-create-cart
+      author: queenarts-team
+      comment: Crear tablas para cart-service (carritos persistentes)
+      
+      changes:
+        # Tabla maestra de carritos
+        - createTable:
+            tableName: carts
+            remarks: Carritos de compra (anónimos y autenticados)
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(100)
+                  constraints:
+                    primaryKey: true
+                  remarks: ID del carrito (UUID o user-based)
+              
+              - column:
+                  name: user_id
+                  type: VARCHAR(100)
+                  remarks: ID de usuario autenticado (null si es anónimo)
+              
+              - column:
+                  name: session_id
+                  type: VARCHAR(200)
+                  remarks: ID de sesión para carritos anónimos
+              
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  defaultValue: 'active'
+                  constraints:
+                    nullable: false
+                  remarks: Estado (active, converted, abandoned, merged)
+              
+              - column:
+                  name: currency
+                  type: VARCHAR(3)
+                  defaultValue: 'USD'
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: subtotal
+                  type: DECIMAL(12,2)
+                  defaultValue: 0
+                  remarks: Subtotal calculado (denormalizado)
+              
+              - column:
+                  name: total_items
+                  type: INTEGER
+                  defaultValue: 0
+                  remarks: Total de items en el carrito
+              
+              - column:
+                  name: total_unique_items
+                  type: INTEGER
+                  defaultValue: 0
+                  remarks: Número de productos únicos
+              
+              - column:
+                  name: coupon_code
+                  type: VARCHAR(50)
+                  remarks: Cupón aplicado
+              
+              - column:
+                  name: discount_amount
+                  type: DECIMAL(12,2)
+                  defaultValue: 0
+                  remarks: Descuento aplicado
+              
+              - column:
+                  name: shipping_estimate
+                  type: DECIMAL(12,2)
+                  remarks: Estimación de envío
+              
+              - column:
+                  name: abandoned_at
+                  type: TIMESTAMPTZ
+                  remarks: Cuándo se marcó como abandonado
+              
+              - column:
+                  name: converted_to_order_id
+                  type: VARCHAR(100)
+                  remarks: ID de la orden si se convirtió
+              
+              - column:
+                  name: merged_from_cart_id
+                  type: VARCHAR(100)
+                  remarks: ID del carrito anónimo mergeado
+              
+              - column:
+                  name: ip_address
+                  type: VARCHAR(45)
+                  remarks: IP del usuario (para fraud prevention)
+              
+              - column:
+                  name: user_agent
+                  type: TEXT
+                  remarks: User agent del navegador
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: expires_at
+                  type: TIMESTAMPTZ
+                  remarks: Expiración del carrito (TTL)
+
+        - addCheckConstraint:
+            tableName: carts
+            constraintName: chk_carts_status
+            columnName: status
+            expression: status IN ('active', 'converted', 'abandoned', 'merged')
+
+        - createIndex:
+            tableName: carts
+            indexName: idx_carts_user
+            columns:
+              - column:
+                  name: user_id
+            where: user_id IS NOT NULL
+
+        - createIndex:
+            tableName: carts
+            indexName: idx_carts_session
+            columns:
+              - column:
+                  name: session_id
+            where: session_id IS NOT NULL
+
+        - createIndex:
+            tableName: carts
+            indexName: idx_carts_status
+            columns:
+              - column:
+                  name: status
+
+        - createIndex:
+            tableName: carts
+            indexName: idx_carts_expires
+            columns:
+              - column:
+                  name: expires_at
+            where: status = 'active'
+
+        - createIndex:
+            tableName: carts
+            indexName: idx_carts_abandoned
+            columns:
+              - column:
+                  name: status
+              - column:
+                  name: updated_at
+            where: status = 'active'
+
+        - sql:
+            sql: |
+              CREATE TRIGGER update_carts_updated_at 
+              BEFORE UPDATE ON carts
+              FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+        # Items del carrito
+        - createTable:
+            tableName: cart_items
+            remarks: Items individuales en cada carrito
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: uuid_generate_v4()
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: cart_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_cart_items_cart
+                    references: carts(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: product_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                  remarks: Referencia al producto
+              
+              - column:
+                  name: sku
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                  remarks: SKU al momento de agregar (snapshot)
+              
+              - column:
+                  name: name
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+                  remarks: Nombre del producto (snapshot)
+              
+              - column:
+                  name: price
+                  type: DECIMAL(10,2)
+                  constraints:
+                    nullable: false
+                  remarks: Precio al momento de agregar
+              
+              - column:
+                  name: currency
+                  type: VARCHAR(3)
+                  defaultValue: 'USD'
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: quantity
+                  type: INTEGER
+                  defaultValue: 1
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: image_url
+                  type: VARCHAR(500)
+                  remarks: URL de imagen (snapshot)
+              
+              - column:
+                  name: added_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+              
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+
+        - addCheckConstraint:
+            tableName: cart_items
+            constraintName: chk_cart_items_quantity
+            columnName: quantity
+            expression: quantity > 0
+
+        - createIndex:
+            tableName: cart_items
+            indexName: idx_cart_items_cart
+            columns:
+              - column:
+                  name: cart_id
+
+        - createIndex:
+            tableName: cart_items
+            indexName: idx_cart_items_product
+            columns:
+              - column:
+                  name: product_id
+
+        # Tabla de eventos del carrito (analytics y debugging)
+        - createTable:
+            tableName: cart_events
+            remarks: Eventos de interacción con carritos
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: uuid_generate_v4()
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: cart_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_cart_events_cart
+                    references: carts(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: event_type
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                  remarks: Tipo de evento (item_added, item_removed, quantity_changed, checkout_started, etc.)
+              
+              - column:
+                  name: product_id
+                  type: VARCHAR(50)
+                  remarks: Producto relacionado al evento
+              
+              - column:
+                  name: quantity
+                  type: INTEGER
+                  remarks: Cantidad involucrada
+              
+              - column:
+                  name: metadata
+                  type: JSONB
+                  defaultValue: '{}'
+                  remarks: Datos adicionales del evento
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+
+        - createIndex:
+            tableName: cart_events
+            indexName: idx_cart_events_cart
+            columns:
+              - column:
+                  name: cart_id
+              - column:
+                  name: created_at
+            descending:
+              - false
+              - true
+
+        - createIndex:
+            tableName: cart_events
+            indexName: idx_cart_events_type
+            columns:
+              - column:
+                  name: event_type
+              - column:
+                  name: created_at
+            descending:
+              - false
+              - true
+
+        # Vista de carritos activos con resumen
+        - createView:
+            viewName: cart_summary
+            remarks: Resumen de carritos con totales calculados
+            selectQuery: |
+              SELECT 
+                c.id,
+                c.user_id,
+                c.status,
+                c.currency,
+                COUNT(ci.id) as item_count,
+                SUM(ci.quantity) as total_quantity,
+                SUM(ci.price * ci.quantity) as calculated_subtotal,
+                c.discount_amount,
+                c.shipping_estimate,
+                SUM(ci.price * ci.quantity) - c.discount_amount + COALESCE(c.shipping_estimate, 0) as estimated_total,
+                c.updated_at,
+                c.expires_at
+              FROM carts c
+              LEFT JOIN cart_items ci ON c.id = ci.cart_id
+              WHERE c.status = 'active'
+              GROUP BY c.id, c.user_id, c.status, c.currency, c.discount_amount, c.shipping_estimate, c.updated_at, c.expires_at
+
+      rollback:
+        - dropView:
+            viewName: cart_summary
+        - dropTable:
+            tableName: cart_events
+        - dropTable:
+            tableName: cart_items
+        - sql:
+            sql: DROP TRIGGER IF EXISTS update_carts_updated_at ON carts
+        - dropTable:
+            tableName: carts

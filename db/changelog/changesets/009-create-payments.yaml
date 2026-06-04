@@ -1,0 +1,466 @@
+databaseChangeLog:
+  - changeSet:
+      id: 009-create-payments
+      author: queenarts-team
+      comment: Crear tablas para payment-service (transacciones, métodos, reembolsos)
+      
+      changes:
+        # Tabla de transacciones de pago
+        - createTable:
+            tableName: payment_transactions
+            remarks: Registro de todas las transacciones de pago
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(100)
+                  constraints:
+                    primaryKey: true
+                  remarks: ID interno de la transacción
+              
+              - column:
+                  name: order_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                  remarks: Orden relacionada
+              
+              - column:
+                  name: type
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+                  remarks: Tipo (payment, refund, authorization)
+              
+              - column:
+                  name: status
+                  type: VARCHAR(30)
+                  constraints:
+                    nullable: false
+                  remarks: Estado (pending, processing, succeeded, failed, cancelled)
+              
+              - column:
+                  name: amount
+                  type: DECIMAL(12,2)
+                  constraints:
+                    nullable: false
+                  remarks: Monto de la transacción
+              
+              - column:
+                  name: currency
+                  type: VARCHAR(3)
+                  defaultValue: 'USD'
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: payment_method
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                  remarks: Método (credit_card, debit_card, transfer, cash, paypal, stripe)
+              
+              - column:
+                  name: provider
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                  remarks: Proveedor (stripe, paypal, mercadopago, conekta, internal)
+              
+              - column:
+                  name: provider_transaction_id
+                  type: VARCHAR(200)
+                  remarks: ID de transacción en el proveedor
+              
+              - column:
+                  name: provider_metadata
+                  type: JSONB
+                  defaultValue: '{}'
+                  remarks: Respuesta completa del proveedor
+              
+              - column:
+                  name: card_last_four
+                  type: VARCHAR(4)
+                  remarks: Últimos 4 dígitos (solo para tarjetas)
+              
+              - column:
+                  name: card_brand
+                  type: VARCHAR(50)
+                  remarks: Marca (visa, mastercard, amex, diners)
+              
+              - column:
+                  name: installments
+                  type: INTEGER
+                  defaultValue: 1
+                  remarks: Número de cuotas
+              
+              - column:
+                  name: error_code
+                  type: VARCHAR(100)
+                  remarks: Código de error si falló
+              
+              - column:
+                  name: error_message
+                  type: TEXT
+                  remarks: Mensaje de error
+              
+              - column:
+                  name: gateway_response
+                  type: JSONB
+                  defaultValue: '{}'
+                  remarks: Respuesta completa del gateway
+              
+              - column:
+                  name: processed_at
+                  type: TIMESTAMPTZ
+                  remarks: Fecha de procesamiento
+              
+              - column:
+                  name: settled_at
+                  type: TIMESTAMPTZ
+                  remarks: Fecha de liquidación
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+
+        - addCheckConstraint:
+            tableName: payment_transactions
+            constraintName: chk_payment_type
+            columnName: type
+            expression: type IN ('payment', 'refund', 'authorization')
+
+        - addCheckConstraint:
+            tableName: payment_transactions
+            constraintName: chk_payment_status
+            columnName: status
+            expression: status IN ('pending', 'processing', 'succeeded', 'failed', 'cancelled')
+
+        - addCheckConstraint:
+            tableName: payment_transactions
+            constraintName: chk_payment_method
+            columnName: payment_method
+            expression: payment_method IN ('credit_card', 'debit_card', 'transfer', 'cash', 'paypal', 'stripe')
+
+        - createIndex:
+            tableName: payment_transactions
+            indexName: idx_payments_order
+            columns:
+              - column:
+                  name: order_id
+
+        - createIndex:
+            tableName: payment_transactions
+            indexName: idx_payments_status
+            columns:
+              - column:
+                  name: status
+
+        - createIndex:
+            tableName: payment_transactions
+            indexName: idx_payments_provider
+            columns:
+              - column:
+                  name: provider
+              - column:
+                  name: provider_transaction_id
+
+        - createIndex:
+            tableName: payment_transactions
+            indexName: idx_payments_created
+            columns:
+              - column:
+                  name: created_at
+            descending: true
+
+        - sql:
+            sql: |
+              CREATE TRIGGER update_payments_updated_at 
+              BEFORE UPDATE ON payment_transactions
+              FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+        # Tabla de métodos de pago guardados (para usuarios autenticados)
+        - createTable:
+            tableName: saved_payment_methods
+            remarks: Métodos de pago guardados por usuario
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(100)
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: user_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: type
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                  remarks: Tipo (credit_card, paypal, etc.)
+              
+              - column:
+                  name: provider
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                  remarks: Proveedor que almacena el token
+              
+              - column:
+                  name: provider_token
+                  type: VARCHAR(500)
+                  constraints:
+                    nullable: false
+                  remarks: Token seguro del proveedor (nunca números de tarjeta completos)
+              
+              - column:
+                  name: card_last_four
+                  type: VARCHAR(4)
+              
+              - column:
+                  name: card_brand
+                  type: VARCHAR(50)
+              
+              - column:
+                  name: card_exp_month
+                  type: INTEGER
+              
+              - column:
+                  name: card_exp_year
+                  type: INTEGER
+              
+              - column:
+                  name: holder_name
+                  type: VARCHAR(200)
+                  remarks: Nombre del titular
+              
+              - column:
+                  name: is_default
+                  type: BOOLEAN
+                  defaultValue: false
+                  remarks: Si es el método predeterminado
+              
+              - column:
+                  name: is_active
+                  type: BOOLEAN
+                  defaultValue: true
+              
+              - column:
+                  name: billing_address
+                  type: JSONB
+                  defaultValue: '{}'
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+              
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+
+        - createIndex:
+            tableName: saved_payment_methods
+            indexName: idx_payment_methods_user
+            columns:
+              - column:
+                  name: user_id
+              - column:
+                  name: is_active
+            where: is_active = true
+
+        - createIndex:
+            tableName: saved_payment_methods
+            indexName: idx_payment_methods_default
+            columns:
+              - column:
+                  name: user_id
+              - column:
+                  name: is_default
+            where: is_default = true
+
+        # Tabla de reembolsos
+        - createTable:
+            tableName: refunds
+            remarks: Registro de reembolsos procesados
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(100)
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: order_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: payment_transaction_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_refunds_transaction
+                    references: payment_transactions(id)
+              
+              - column:
+                  name: amount
+                  type: DECIMAL(12,2)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: currency
+                  type: VARCHAR(3)
+                  defaultValue: 'USD'
+              
+              - column:
+                  name: reason
+                  type: TEXT
+                  remarks: Razón del reembolso
+              
+              - column:
+                  name: reason_code
+                  type: VARCHAR(50)
+                  remarks: Código de razón (customer_request, defective, not_delivered, etc.)
+              
+              - column:
+                  name: status
+                  type: VARCHAR(30)
+                  defaultValue: 'pending'
+                  constraints:
+                    nullable: false
+                  remarks: Estado (pending, processing, completed, failed)
+              
+              - column:
+                  name: provider_refund_id
+                  type: VARCHAR(200)
+                  remarks: ID de reembolso en el proveedor
+              
+              - column:
+                  name: processed_by
+                  type: VARCHAR(100)
+                  remarks: Usuario que autorizó el reembolso
+              
+              - column:
+                  name: processed_at
+                  type: TIMESTAMPTZ
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+
+        - addCheckConstraint:
+            tableName: refunds
+            constraintName: chk_refunds_status
+            columnName: status
+            expression: status IN ('pending', 'processing', 'completed', 'failed')
+
+        - createIndex:
+            tableName: refunds
+            indexName: idx_refunds_order
+            columns:
+              - column:
+                  name: order_id
+
+        # Webhooks recibidos de proveedores
+        - createTable:
+            tableName: payment_webhooks
+            remarks: Log de webhooks recibidos de proveedores de pago
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: uuid_generate_v4()
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: provider
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: event_type
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                  remarks: Tipo de evento (payment_intent.succeeded, etc.)
+              
+              - column:
+                  name: payload
+                  type: JSONB
+                  constraints:
+                    nullable: false
+                  remarks: Payload completo del webhook
+              
+              - column:
+                  name: signature
+                  type: VARCHAR(500)
+                  remarks: Firma para verificación
+              
+              - column:
+                  name: is_processed
+                  type: BOOLEAN
+                  defaultValue: false
+                  remarks: Si ya fue procesado
+              
+              - column:
+                  name: processing_result
+                  type: JSONB
+                  defaultValue: '{}'
+              
+              - column:
+                  name: ip_address
+                  type: VARCHAR(45)
+              
+              - column:
+                  name: received_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+
+        - createIndex:
+            tableName: payment_webhooks
+            indexName: idx_webhooks_provider
+            columns:
+              - column:
+                  name: provider
+              - column:
+                  name: event_type
+
+        - createIndex:
+            tableName: payment_webhooks
+            indexName: idx_webhooks_unprocessed
+            columns:
+              - column:
+                  name: is_processed
+              - column:
+                  name: received_at
+            where: is_processed = false
+
+      rollback:
+        - dropTable:
+            tableName: payment_webhooks
+        - dropTable:
+            tableName: refunds
+        - dropTable:
+            tableName: saved_payment_methods
+        - sql:
+            sql: DROP TRIGGER IF EXISTS update_payments_updated_at ON payment_transactions
+        - dropTable:
+            tableName: payment_transactions

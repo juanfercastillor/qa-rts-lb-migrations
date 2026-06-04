@@ -1,0 +1,334 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-create-inventory
+      author: queenarts-team
+      comment: Crear tablas para inventory-service (stock, reservas, movimientos)
+      
+      changes:
+        # Tabla maestra de inventario por SKU
+        - createTable:
+            tableName: inventory
+            remarks: Stock maestro de productos (source of truth)
+            columns:
+              - column:
+                  name: sku
+                  type: VARCHAR(50)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+                  remarks: SKU del producto (mismo que en products)
+              
+              - column:
+                  name: product_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    unique: true
+                  remarks: Referencia al producto
+              
+              - column:
+                  name: quantity_available
+                  type: INTEGER
+                  defaultValue: 0
+                  constraints:
+                    nullable: false
+                  remarks: Stock disponible para venta
+              
+              - column:
+                  name: quantity_reserved
+                  type: INTEGER
+                  defaultValue: 0
+                  constraints:
+                    nullable: false
+                  remarks: Stock reservado en carritos activos
+              
+              - column:
+                  name: quantity_sold
+                  type: INTEGER
+                  defaultValue: 0
+                  constraints:
+                    nullable: false
+                  remarks: Stock vendido historicamente
+              
+              - column:
+                  name: reorder_point
+                  type: INTEGER
+                  defaultValue: 5
+                  remarks: Punto de reorden (alerta de stock bajo)
+              
+              - column:
+                  name: reorder_quantity
+                  type: INTEGER
+                  defaultValue: 20
+                  remarks: Cantidad sugerida para reordenar
+              
+              - column:
+                  name: warehouse_location
+                  type: VARCHAR(100)
+                  remarks: Ubicación en almacén
+              
+              - column:
+                  name: last_movement_at
+                  type: TIMESTAMPTZ
+                  remarks: Último movimiento de stock
+              
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+
+        - addCheckConstraint:
+            tableName: inventory
+            constraintName: chk_inventory_quantities
+            columnName: quantity_available
+            expression: quantity_available >= 0 AND quantity_reserved >= 0
+
+        - createIndex:
+            tableName: inventory
+            indexName: idx_inventory_product
+            columns:
+              - column:
+                  name: product_id
+
+        - createIndex:
+            tableName: inventory
+            indexName: idx_inventory_low_stock
+            columns:
+              - column:
+                  name: quantity_available
+              - column:
+                  name: reorder_point
+            where: quantity_available <= reorder_point
+
+        # Trigger updated_at
+        - sql:
+            sql: |
+              CREATE TRIGGER update_inventory_updated_at 
+              BEFORE UPDATE ON inventory
+              FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+        # Tabla de reservas temporales (para carritos activos)
+        - createTable:
+            tableName: inventory_reservations
+            remarks: Reservas temporales de stock para carritos
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: uuid_generate_v4()
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: sku
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_reservations_inventory
+                    references: inventory(sku)
+              
+              - column:
+                  name: cart_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                  remarks: ID del carrito que reserva
+              
+              - column:
+                  name: quantity
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+                  remarks: Cantidad reservada
+              
+              - column:
+                  name: expires_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+                  remarks: Expiración de la reserva (TTL, ej. 30 min)
+              
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  defaultValue: 'active'
+                  constraints:
+                    nullable: false
+                  remarks: Estado (active, confirmed, released, expired)
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+
+        - addCheckConstraint:
+            tableName: inventory_reservations
+            constraintName: chk_reservations_quantity
+            columnName: quantity
+            expression: quantity > 0
+
+        - addCheckConstraint:
+            tableName: inventory_reservations
+            constraintName: chk_reservations_status
+            columnName: status
+            expression: status IN ('active', 'confirmed', 'released', 'expired')
+
+        - createIndex:
+            tableName: inventory_reservations
+            indexName: idx_reservations_cart
+            columns:
+              - column:
+                  name: cart_id
+
+        - createIndex:
+            tableName: inventory_reservations
+            indexName: idx_reservations_expiry
+            columns:
+              - column:
+                  name: expires_at
+            where: status = 'active'
+
+        - createIndex:
+            tableName: inventory_reservations
+            indexName: idx_reservations_sku
+            columns:
+              - column:
+                  name: sku
+              - column:
+                  name: status
+
+        # Tabla de movimientos de inventario (auditoría completa)
+        - createTable:
+            tableName: inventory_movements
+            remarks: Historial de todos los movimientos de stock
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: uuid_generate_v4()
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: sku
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_movements_inventory
+                    references: inventory(sku)
+              
+              - column:
+                  name: movement_type
+                  type: VARCHAR(30)
+                  constraints:
+                    nullable: false
+                  remarks: Tipo (in, out, reserve, release, sale, return, adjustment)
+              
+              - column:
+                  name: quantity
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+                  remarks: Cantidad (positiva o negativa)
+              
+              - column:
+                  name: previous_quantity
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+                  remarks: Stock antes del movimiento
+              
+              - column:
+                  name: new_quantity
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+                  remarks: Stock después del movimiento
+              
+              - column:
+                  name: reference_id
+                  type: VARCHAR(100)
+                  remarks: ID de referencia (order_id, cart_id, adjustment_id)
+              
+              - column:
+                  name: reference_type
+                  type: VARCHAR(50)
+                  remarks: Tipo de referencia (order, cart, manual_adjustment)
+              
+              - column:
+                  name: notes
+                  type: TEXT
+                  remarks: Notas del movimiento
+              
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  remarks: Usuario o sistema que realizó el movimiento
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+
+        - addCheckConstraint:
+            tableName: inventory_movements
+            constraintName: chk_movements_type
+            columnName: movement_type
+            expression: movement_type IN ('in', 'out', 'reserve', 'release', 'sale', 'return', 'adjustment')
+
+        - createIndex:
+            tableName: inventory_movements
+            indexName: idx_movements_sku
+            columns:
+              - column:
+                  name: sku
+              - column:
+                  name: created_at
+            descending:
+              - false
+              - true
+
+        - createIndex:
+            tableName: inventory_movements
+            indexName: idx_movements_reference
+            columns:
+              - column:
+                  name: reference_type
+              - column:
+                  name: reference_id
+
+        # Vista de disponibilidad en tiempo real
+        - createView:
+            viewName: inventory_availability
+            remarks: Vista calculada de stock real disponible
+            selectQuery: |
+              SELECT 
+                i.sku,
+                i.product_id,
+                i.quantity_available as available,
+                i.quantity_reserved as reserved,
+                i.quantity_available - i.quantity_reserved as net_available,
+                CASE 
+                  WHEN i.quantity_available - i.quantity_reserved <= 0 THEN 'out_of_stock'
+                  WHEN i.quantity_available - i.quantity_reserved <= i.reorder_point THEN 'low_stock'
+                  ELSE 'in_stock'
+                END as stock_status,
+                i.reorder_point,
+                i.last_movement_at
+              FROM inventory i
+
+      rollback:
+        - dropView:
+            viewName: inventory_availability
+        - dropTable:
+            tableName: inventory_movements
+        - dropTable:
+            tableName: inventory_reservations
+        - sql:
+            sql: DROP TRIGGER IF EXISTS update_inventory_updated_at ON inventory
+        - dropTable:
+            tableName: inventory

@@ -1,0 +1,345 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-create-products
+      author: queenarts-team
+      comment: Crear tabla maestra de productos con todas sus características
+      
+      changes:
+        # Extensiones necesarias
+        - sql:
+            sql: CREATE EXTENSION IF NOT EXISTS "uuid-ossp"
+            remarks: Extensión para generación de UUIDs
+
+        - sql:
+            sql: CREATE EXTENSION IF NOT EXISTS "pg_trgm"
+            remarks: Extensión para búsqueda full-text
+
+        # Función para actualizar updated_at
+        - createProcedure:
+            procedureName: update_updated_at_column
+            procedureBody: |
+              CREATE OR REPLACE FUNCTION update_updated_at_column()
+              RETURNS TRIGGER AS $$
+              BEGIN
+                  NEW.updated_at = NOW();
+                  RETURN NEW;
+              END;
+              $$ language 'plpgsql'
+            remarks: Trigger function para actualizar timestamp automáticamente
+
+        # Tabla maestra de productos
+        - createTable:
+            tableName: products
+            remarks: Catálogo maestro de joyas Queen Arts
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(50)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+                  remarks: ID de producto formato QA-{CAT}-{NUM} ej. QA-AR-001
+              
+              - column:
+                  name: sku
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    unique: true
+                  remarks: Stock Keeping Unit único
+              
+              - column:
+                  name: slug
+                  type: VARCHAR(150)
+                  constraints:
+                    nullable: false
+                    unique: true
+                  remarks: URL-friendly identifier para SEO
+              
+              - column:
+                  name: name
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+                  remarks: Nombre del producto
+              
+              - column:
+                  name: description
+                  type: TEXT
+                  constraints:
+                    nullable: false
+                  remarks: Descripción corta para cards y listados
+              
+              - column:
+                  name: story
+                  type: TEXT
+                  remarks: Narrativa editorial larga para PDP
+              
+              # Precios
+              - column:
+                  name: price
+                  type: DECIMAL(10,2)
+                  constraints:
+                    nullable: false
+                  remarks: Precio de venta en USD
+              
+              - column:
+                  name: original_price
+                  type: DECIMAL(10,2)
+                  remarks: Precio original antes de descuento
+              
+              - column:
+                  name: currency
+                  type: VARCHAR(3)
+                  defaultValue: 'USD'
+                  constraints:
+                    nullable: false
+                  remarks: Moneda (siempre USD para Ecuador)
+              
+              - column:
+                  name: pricing_tier
+                  type: VARCHAR(30)
+                  remarks: Nivel de precio (accessible, accessible_premium, premium, luxury)
+              
+              # Clasificación
+              - column:
+                  name: category_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_products_categories
+                    references: categories(id)
+                  remarks: Categoría del producto
+              
+              - column:
+                  name: badge
+                  type: VARCHAR(50)
+                  remarks: Badge especial (Nuevo, Bestseller, Edición Limitada, Últimas piezas, Agotado)
+              
+              # Material
+              - column:
+                  name: material_base
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                  remarks: Material base ej. Plata .925
+              
+              - column:
+                  name: material_finish
+                  type: VARCHAR(100)
+                  remarks: Acabado del material ej. Pulido brillante
+              
+              - column:
+                  name: material_weight
+                  type: VARCHAR(20)
+                  remarks: Peso del material ej. 4.8g
+              
+              - column:
+                  name: material_purity
+                  type: VARCHAR(50)
+                  remarks: Pureza del material ej. Sterling Silver
+              
+              # Especificaciones
+              - column:
+                  name: spec_type
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                  remarks: Tipo de pieza ej. Colgante, Argolla, Pulsera rígida
+              
+              - column:
+                  name: spec_dimensions
+                  type: VARCHAR(50)
+                  remarks: Dimensiones ej. 1.8 × 1.2 cm
+              
+              - column:
+                  name: spec_closure
+                  type: VARCHAR(100)
+                  remarks: Tipo de cierre ej. Broche langosta
+              
+              - column:
+                  name: spec_length
+                  type: VARCHAR(20)
+                  remarks: Longitud para collares/pulseras ej. 45cm
+              
+              - column:
+                  name: spec_size
+                  type: VARCHAR(20)
+                  remarks: Tamaño para anillos ej. 6, 7, 8
+              
+              - column:
+                  name: spec_adjustable
+                  type: BOOLEAN
+                  defaultValue: false
+                  remarks: Si es ajustable
+              
+              # Piedra (opcional)
+              - column:
+                  name: stone_type
+                  type: VARCHAR(100)
+                  remarks: Tipo de piedra ej. Amatista, Ónix, Ópalo
+              
+              - column:
+                  name: stone_color
+                  type: VARCHAR(100)
+                  remarks: Color de la piedra ej. Violeta cálido
+              
+              - column:
+                  name: stone_shape
+                  type: VARCHAR(100)
+                  remarks: Forma de la piedra ej. Oval, Corazón, Gota
+              
+              - column:
+                  name: stone_cut
+                  type: VARCHAR(100)
+                  remarks: Corte de la piedra ej. Facetado, Pulido
+              
+              - column:
+                  name: stone_quantity
+                  type: INTEGER
+                  remarks: Cantidad de piedras
+              
+              - column:
+                  name: stone_origin
+                  type: VARCHAR(100)
+                  remarks: Origen de la piedra ej. Australia
+              
+              # Emocional
+              - column:
+                  name: emotional_concept
+                  type: VARCHAR(100)
+                  remarks: Concepto emocional ej. Serenidad mineral
+              
+              - column:
+                  name: emotional_tagline
+                  type: VARCHAR(200)
+                  remarks: Frase corta para cards ej. La calma también se lleva
+              
+              - column:
+                  name: emotional_message
+                  type: TEXT
+                  remarks: Mensaje emocional para PDP
+              
+              - column:
+                  name: emotional_symbolism
+                  type: TEXT
+                  remarks: Simbolismo de la pieza
+              
+              # Cuidados (almacenados como JSONB para flexibilidad)
+              - column:
+                  name: care_data
+                  type: JSONB
+                  defaultValue: '{}'
+                  remarks: Instrucciones de cuidado, almacenamiento y limpieza
+              
+              # SEO
+              - column:
+                  name: seo_title
+                  type: VARCHAR(150)
+                  remarks: Título SEO
+              
+              - column:
+                  name: seo_description
+                  type: VARCHAR(300)
+                  remarks: Descripción SEO
+              
+              # Estado y visibilidad
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  defaultValue: 'draft'
+                  constraints:
+                    nullable: false
+                  remarks: Estado (active, draft, archived)
+              
+              - column:
+                  name: stock
+                  type: INTEGER
+                  defaultValue: 0
+                  constraints:
+                    nullable: false
+                  remarks: Stock disponible (desnormalizado, source of truth en inventory-service)
+              
+              - column:
+                  name: is_new
+                  type: BOOLEAN
+                  defaultValue: false
+                  remarks: Si es producto nuevo (últimos 30 días)
+              
+              - column:
+                  name: is_featured
+                  type: BOOLEAN
+                  defaultValue: false
+                  remarks: Si aparece en home y destacados
+              
+              # Fechas
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: published_at
+                  type: TIMESTAMPTZ
+                  remarks: Fecha de publicación cuando pasa a active
+              
+              # Auditoría
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  remarks: Usuario que creó el registro
+              
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+                  remarks: Usuario que actualizó el registro
+
+        # Constraints adicionales
+        - addCheckConstraint:
+            tableName: products
+            constraintName: chk_products_price_positive
+            columnName: price
+            expression: price > 0
+
+        - addCheckConstraint:
+            tableName: products
+            constraintName: chk_products_status
+            columnName: status
+            expression: status IN ('active', 'draft', 'archived')
+
+        - addCheckConstraint:
+            tableName: products
+            constraintName: chk_products_currency
+            columnName: currency
+            expression: currency = 'USD'
+
+        - addCheckConstraint:
+            tableName: products
+            constraintName: chk_products_stock_positive
+            columnName: stock
+            expression: stock >= 0
+
+        # Trigger para updated_at
+        - sql:
+            sql: |
+              CREATE TRIGGER update_products_updated_at 
+              BEFORE UPDATE ON products
+              FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+      rollback:
+        - dropTrigger:
+            triggerName: update_products_updated_at
+            tableName: products
+        - dropTable:
+            tableName: products
+        - dropProcedure:
+            procedureName: update_updated_at_column

@@ -1,0 +1,338 @@
+databaseChangeLog:
+  - changeSet:
+      id: 013-create-indexes-and-views
+      author: queenarts-team
+      comment: Índices adicionales de rendimiento y vistas de reporte
+      
+      changes:
+        # ============================================================
+        # ÍNDICES FULL-TEXT PARA BÚSQUEDA
+        # ============================================================
+        - sql:
+            sql: |
+              CREATE INDEX idx_products_fulltext ON products 
+              USING gin(to_tsvector('spanish', 
+                coalesce(name,'') || ' ' || 
+                coalesce(description,'') || ' ' || 
+                coalesce(story,'') || ' ' ||
+                coalesce(material_base,'') || ' ' ||
+                coalesce(stone_type,'')
+              ))
+            remarks: Índice full-text en español para búsqueda de productos
+
+        - sql:
+            sql: |
+              CREATE INDEX idx_journal_fulltext ON journal_articles 
+              USING gin(to_tsvector('spanish', 
+                coalesce(title,'') || ' ' || 
+                coalesce(excerpt,'') || ' ' || 
+                coalesce(content,'')
+              ))
+            remarks: Índice full-text para búsqueda en artículos
+
+        # ============================================================
+        # ÍNDICES DE RENDIMIENTO ADICIONALES
+        # ============================================================
+        - createIndex:
+            tableName: products
+            indexName: idx_products_new
+            columns:
+              - column:
+                  name: is_new
+              - column:
+                  name: created_at
+            where: is_new = true AND status = 'active'
+
+        - createIndex:
+            tableName: products
+            indexName: idx_products_collection
+            columns:
+              - column:
+                  name: collection_slug
+            where: collection_slug IS NOT NULL AND status = 'active'
+
+        - createIndex:
+            tableName: orders
+            indexName: idx_orders_user_status
+            columns:
+              - column:
+                  name: user_id
+              - column:
+                  name: status
+
+        - createIndex:
+            tableName: orders
+            indexName: idx_orders_date_range
+            columns:
+              - column:
+                  name: created_at
+              - column:
+                  name: total
+            descending:
+              - true
+              - false
+
+        - createIndex:
+            tableName: payment_transactions
+            indexName: idx_payments_date_provider
+            columns:
+              - column:
+                  name: created_at
+              - column:
+                  name: provider
+            descending:
+              - true
+              - false
+
+        - createIndex:
+            tableName: notifications
+            indexName: idx_notifications_user_unread
+            columns:
+              - column:
+                  name: user_id
+              - column:
+                  name: status
+            where: status IN ('sent', 'delivered')
+
+        # ============================================================
+        # VISTAS DE REPORTE Y ANÁLISIS
+        # ============================================================
+        - createView:
+            viewName: product_performance_summary
+            remarks: Resumen de rendimiento de productos (vistas, ventas, conversión)
+            selectQuery: |
+              SELECT 
+                p.id,
+                p.sku,
+                p.name,
+                p.price,
+                p.status,
+                p.is_featured,
+                p.stock,
+                COUNT(DISTINCT oi.id) as times_ordered,
+                COALESCE(SUM(oi.quantity), 0) as total_units_sold,
+                COALESCE(SUM(oi.total), 0) as total_revenue,
+                AVG(oi.quantity) as avg_quantity_per_order,
+                p.view_count as current_view_count,
+                CASE 
+                  WHEN p.view_count > 0 THEN ROUND((COUNT(DISTINCT oi.id)::numeric / p.view_count) * 100, 2)
+                  ELSE 0 
+                END as conversion_rate
+              FROM products p
+              LEFT JOIN order_items oi ON p.id = oi.product_id
+              LEFT JOIN orders o ON oi.order_id = o.id AND o.status NOT IN ('cancelled', 'refunded')
+              WHERE p.status = 'active'
+              GROUP BY p.id, p.sku, p.name, p.price, p.status, p.is_featured, p.stock, p.view_count
+
+        - createView:
+            viewName: sales_by_category
+            remarks: Ventas agrupadas por categoría
+            selectQuery: |
+              SELECT 
+                c.id as category_id,
+                c.name as category_name,
+                COUNT(DISTINCT o.id) as order_count,
+                COUNT(DISTINCT oi.product_id) as unique_products_sold,
+                SUM(oi.quantity) as total_units_sold,
+                SUM(oi.total) as total_revenue,
+                AVG(oi.total) as avg_order_value,
+                MIN(o.created_at) as first_sale,
+                MAX(o.created_at) as last_sale
+              FROM categories c
+              JOIN products p ON c.id = p.category_id
+              JOIN order_items oi ON p.id = oi.product_id
+              JOIN orders o ON oi.order_id = o.id
+              WHERE o.status NOT IN ('cancelled', 'refunded')
+              GROUP BY c.id, c.name
+
+        - createView:
+            viewName: sales_by_month
+            remarks: Ventas mensuales para tendencias
+            selectQuery: |
+              SELECT 
+                DATE_TRUNC('month', o.created_at) as month,
+                COUNT(DISTINCT o.id) as order_count,
+                COUNT(DISTINCT o.user_id) as unique_customers,
+                SUM(o.total) as total_revenue,
+                AVG(o.total) as avg_order_value,
+                SUM(o.discount_amount) as total_discounts,
+                SUM(o.shipping_cost) as total_shipping
+              FROM orders o
+              WHERE o.status NOT IN ('cancelled', 'refunded')
+              GROUP BY DATE_TRUNC('month', o.created_at)
+              ORDER BY month DESC
+
+        - createView:
+            viewName: abandoned_cart_summary
+            remarks: Análisis de carritos abandonados
+            selectQuery: |
+              SELECT 
+                DATE_TRUNC('day', c.created_at) as date,
+                COUNT(*) FILTER (WHERE c.status = 'active') as active_carts,
+                COUNT(*) FILTER (WHERE c.status = 'abandoned') as abandoned_carts,
+                COUNT(*) FILTER (WHERE c.status = 'converted') as converted_carts,
+                COUNT(*) FILTER (WHERE c.status = 'merged') as merged_carts,
+                AVG(c.total_items) FILTER (WHERE c.status = 'abandoned') as avg_items_abandoned,
+                AVG(c.subtotal) FILTER (WHERE c.status = 'abandoned') as avg_value_abandoned,
+                ROUND(
+                  COUNT(*) FILTER (WHERE c.status = 'converted')::numeric / 
+                  NULLIF(COUNT(*) FILTER (WHERE c.status IN ('converted', 'abandoned')), 0) * 100,
+                  2
+                ) as conversion_rate
+              FROM carts c
+              WHERE c.created_at >= NOW() - INTERVAL '90 days'
+              GROUP BY DATE_TRUNC('day', c.created_at)
+              ORDER BY date DESC
+
+        - createView:
+            viewName: low_stock_alert
+            remarks: Productos con stock bajo que necesitan reabastecimiento
+            selectQuery: |
+              SELECT 
+                p.id,
+                p.sku,
+                p.name,
+                p.category_id,
+                c.name as category_name,
+                p.price,
+                i.quantity_available as current_stock,
+                i.reorder_point,
+                i.quantity_reserved,
+                i.quantity_available - i.quantity_reserved as net_available,
+                i.reorder_quantity as suggested_order,
+                p.status,
+                i.last_movement_at
+              FROM products p
+              JOIN inventory i ON p.sku = i.sku
+              JOIN categories c ON p.category_id = c.id
+              WHERE p.status = 'active'
+                AND i.quantity_available <= i.reorder_point
+              ORDER BY (i.quantity_available - i.quantity_reserved) ASC
+
+        - createView:
+            viewName: customer_lifetime_value
+            remarks: Valor de vida del cliente (CLV)
+            selectQuery: |
+              SELECT 
+                u.id as user_id,
+                u.email,
+                u.name,
+                u.created_at as customer_since,
+                COUNT(DISTINCT o.id) as total_orders,
+                MIN(o.created_at) as first_order_date,
+                MAX(o.created_at) as last_order_date,
+                SUM(o.total) as total_spent,
+                AVG(o.total) as avg_order_value,
+                SUM(o.total) / NULLIF(COUNT(DISTINCT o.id), 0) as clv,
+                COUNT(DISTINCT w.product_id) as wishlist_count,
+                EXTRACT(DAY FROM NOW() - MAX(o.created_at)) as days_since_last_order,
+                CASE 
+                  WHEN MAX(o.created_at) >= NOW() - INTERVAL '30 days' THEN 'active'
+                  WHEN MAX(o.created_at) >= NOW() - INTERVAL '90 days' THEN 'at_risk'
+                  ELSE 'dormant'
+                END as customer_segment
+              FROM user_profiles u
+              LEFT JOIN orders o ON u.id = o.user_id AND o.status NOT IN ('cancelled', 'refunded')
+              LEFT JOIN wishlist_items w ON u.id = w.user_id
+              WHERE u.status = 'active'
+              GROUP BY u.id, u.email, u.name, u.created_at
+              HAVING COUNT(DISTINCT o.id) > 0
+
+        # ============================================================
+        # FUNCIÓN PARA CALCULAR READ TIME
+        # ============================================================
+        - sql:
+            sql: |
+              CREATE OR REPLACE FUNCTION calculate_read_time(content TEXT)
+              RETURNS INTEGER AS $$
+              DECLARE
+                word_count INTEGER;
+                read_time INTEGER;
+              BEGIN
+                -- Contar palabras aproximadas (separadas por espacios)
+                word_count := array_length(regexp_split_to_array(content, '\s+'), 1);
+                IF word_count IS NULL THEN
+                  word_count := 0;
+                END IF;
+                -- Velocidad promedio de lectura: 200 palabras por minuto
+                read_time := GREATEST(1, CEIL(word_count::FLOAT / 200));
+                RETURN read_time;
+              END;
+              $$ LANGUAGE plpgsql IMMUTABLE
+            remarks: Función para calcular tiempo de lectura en minutos
+
+        # ============================================================
+        # TRIGGER PARA ACTUALIZAR VIEW COUNT EN PRODUCTOS
+        # ============================================================
+        - sql:
+            sql: |
+              CREATE OR REPLACE FUNCTION increment_product_view()
+              RETURNS TRIGGER AS $$
+              BEGIN
+                UPDATE products 
+                SET view_count = COALESCE(view_count, 0) + 1
+                WHERE id = NEW.product_id;
+                RETURN NEW;
+              END;
+              $$ LANGUAGE plpgsql
+            remarks: Función para incrementar contador de vistas
+
+        # ============================================================
+        # POLÍTICAS DE SEGURIDAD RLS (PARA MULTITENANT FUTURO)
+        # ============================================================
+        - sql:
+            sql: ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY
+            remarks: Habilitar Row Level Security en perfiles de usuario
+
+        - sql:
+            sql: |
+              CREATE POLICY user_profiles_isolation ON user_profiles
+                FOR ALL
+                TO queenarts_app
+                USING (id = current_setting('app.current_user_id', true) OR 
+                       current_setting('app.is_admin', true)::boolean)
+            remarks: Política de aislamiento de datos de usuario
+
+      rollback:
+        - sql:
+            sql: DROP POLICY IF EXISTS user_profiles_isolation ON user_profiles
+        - sql:
+            sql: ALTER TABLE user_profiles DISABLE ROW LEVEL SECURITY
+        - sql:
+            sql: DROP FUNCTION IF EXISTS increment_product_view()
+        - sql:
+            sql: DROP FUNCTION IF EXISTS calculate_read_time(TEXT)
+        - dropView:
+            viewName: customer_lifetime_value
+        - dropView:
+            viewName: low_stock_alert
+        - dropView:
+            viewName: abandoned_cart_summary
+        - dropView:
+            viewName: sales_by_month
+        - dropView:
+            viewName: sales_by_category
+        - dropView:
+            viewName: product_performance_summary
+        - dropIndex:
+            tableName: notifications
+            indexName: idx_notifications_user_unread
+        - dropIndex:
+            tableName: payment_transactions
+            indexName: idx_payments_date_provider
+        - dropIndex:
+            tableName: orders
+            indexName: idx_orders_date_range
+        - dropIndex:
+            tableName: orders
+            indexName: idx_orders_user_status
+        - dropIndex:
+            tableName: products
+            indexName: idx_products_collection
+        - dropIndex:
+            tableName: products
+            indexName: idx_products_new
+        - sql:
+            sql: DROP INDEX IF EXISTS idx_journal_fulltext
+        - sql:
+            sql: DROP INDEX IF EXISTS idx_products_fulltext

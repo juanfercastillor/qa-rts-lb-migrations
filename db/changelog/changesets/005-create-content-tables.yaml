@@ -1,0 +1,822 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-create-content-tables
+      author: queenarts-team
+      comment: Crear tablas de Journal, Gift Guides y SEO metadata
+      
+      changes:
+        # Categorías de journal
+        - createTable:
+            tableName: journal_categories
+            remarks: Categorías de artículos del blog
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(30)
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: slug
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                    unique: true
+              
+              - column:
+                  name: description
+                  type: TEXT
+              
+              - column:
+                  name: sort_order
+                  type: INTEGER
+                  defaultValue: 0
+
+        - insert:
+            tableName: journal_categories
+            columns:
+              - column:
+                  name: id
+                  value: tendencias
+              - column:
+                  name: name
+                  value: Tendencias
+              - column:
+                  name: slug
+                  value: tendencias
+              - column:
+                  name: sort_order
+                  value: 1
+
+        - insert:
+            tableName: journal_categories
+            columns:
+              - column:
+                  name: id
+                  value: cuidados
+              - column:
+                  name: name
+                  value: Cuidados
+              - column:
+                  name: slug
+                  value: cuidados
+              - column:
+                  name: sort_order
+                  value: 2
+
+        - insert:
+            tableName: journal_categories
+            columns:
+              - column:
+                  name: id
+                  value: simbolismo
+              - column:
+                  name: name
+                  value: Simbolismo
+              - column:
+                  name: slug
+                  value: simbolismo
+              - column:
+                  name: sort_order
+                  value: 3
+
+        - insert:
+            tableName: journal_categories
+            columns:
+              - column:
+                  name: id
+                  value: editorial
+              - column:
+                  name: name
+                  value: Editorial
+              - column:
+                  name: slug
+                  value: editorial
+              - column:
+                  name: sort_order
+                  value: 4
+
+        - insert:
+            tableName: journal_categories
+            columns:
+              - column:
+                  name: id
+                  value: guias
+              - column:
+                  name: name
+                  value: Guías
+              - column:
+                  name: slug
+                  value: guias
+              - column:
+                  name: sort_order
+                  value: 5
+
+        # Tabla de artículos del Journal
+        - createTable:
+            tableName: journal_articles
+            remarks: Artículos editoriales del blog
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(50)
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: slug
+                  type: VARCHAR(150)
+                  constraints:
+                    nullable: false
+                    unique: true
+              
+              - column:
+                  name: title
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: excerpt
+                  type: VARCHAR(500)
+                  constraints:
+                    nullable: false
+                  remarks: Resumen para cards y meta description
+              
+              - column:
+                  name: content
+                  type: TEXT
+                  constraints:
+                    nullable: false
+                  remarks: Contenido HTML sanitizado
+              
+              # Imágenes
+              - column:
+                  name: cover_image
+                  type: VARCHAR(500)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: cover_image_alt
+                  type: VARCHAR(300)
+                  constraints:
+                    nullable: false
+              
+              # Categoría y autor
+              - column:
+                  name: category_id
+                  type: VARCHAR(30)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_journal_categories
+                    references: journal_categories(id)
+              
+              - column:
+                  name: author_name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: author_role
+                  type: VARCHAR(100)
+              
+              - column:
+                  name: author_avatar
+                  type: VARCHAR(500)
+              
+              # Métricas
+              - column:
+                  name: read_time
+                  type: INTEGER
+                  defaultValue: 5
+                  remarks: Tiempo estimado de lectura en minutos
+              
+              - column:
+                  name: view_count
+                  type: INTEGER
+                  defaultValue: 0
+                  remarks: Conteo de vistas (denormalizado)
+              
+              # SEO
+              - column:
+                  name: seo_title
+                  type: VARCHAR(150)
+              
+              - column:
+                  name: seo_description
+                  type: VARCHAR(300)
+              
+              # Estado
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  defaultValue: 'draft'
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: is_featured
+                  type: BOOLEAN
+                  defaultValue: false
+              
+              # Fechas
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: published_at
+                  type: TIMESTAMPTZ
+              
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+
+        - addCheckConstraint:
+            tableName: journal_articles
+            constraintName: chk_journal_status
+            columnName: status
+            expression: status IN ('published', 'draft', 'archived')
+
+        - createIndex:
+            tableName: journal_articles
+            indexName: idx_journal_slug
+            columns:
+              - column:
+                  name: slug
+
+        - createIndex:
+            tableName: journal_articles
+            indexName: idx_journal_status
+            columns:
+              - column:
+                  name: status
+
+        - createIndex:
+            tableName: journal_articles
+            indexName: idx_journal_category
+            columns:
+              - column:
+                  name: category_id
+
+        - createIndex:
+            tableName: journal_articles
+            indexName: idx_journal_featured
+            columns:
+              - column:
+                  name: is_featured
+            where: is_featured = TRUE
+
+        - createIndex:
+            tableName: journal_articles
+            indexName: idx_journal_published
+            columns:
+              - column:
+                  name: published_at
+            descending: true
+            where: status = 'published'
+
+        # Trigger updated_at
+        - sql:
+            sql: |
+              CREATE TRIGGER update_journal_articles_updated_at 
+              BEFORE UPDATE ON journal_articles
+              FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+        # Relación artículos-tags
+        - createTable:
+            tableName: article_tags
+            remarks: Tags de artículos del journal
+            columns:
+              - column:
+                  name: article_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_article_tags_articles
+                    references: journal_articles(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: tag_id
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_article_tags_tags
+                    references: tags(id)
+                    deleteCascade: true
+            
+            primaryKey:
+              columnNames: article_id, tag_id
+
+        # Relación artículos relacionados
+        - createTable:
+            tableName: article_related
+            remarks: Artículos relacionados entre sí
+            columns:
+              - column:
+                  name: article_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_article_related_source
+                    references: journal_articles(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: related_article_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_article_related_target
+                    references: journal_articles(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: sort_order
+                  type: INTEGER
+                  defaultValue: 0
+            
+            primaryKey:
+              columnNames: article_id, related_article_id
+
+        # Productos mencionados en artículos
+        - createTable:
+            tableName: article_products
+            remarks: Referencias a productos dentro de artículos
+            columns:
+              - column:
+                  name: article_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_article_products_articles
+                    references: journal_articles(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: product_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                  remarks: Referencia a product (no FK cruz-servicio)
+              
+              - column:
+                  name: mention_context
+                  type: TEXT
+                  remarks: Contexto de la mención
+              
+              - column:
+                  name: sort_order
+                  type: INTEGER
+                  defaultValue: 0
+            
+            primaryKey:
+              columnNames: article_id, product_id
+
+        - createIndex:
+            tableName: article_products
+            indexName: idx_article_products_article
+            columns:
+              - column:
+                  name: article_id
+
+        # Tablas de Gift Guides
+        - createTable:
+            tableName: gift_occasions
+            remarks: Ocasiones para regalos
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(30)
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: slug
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                    unique: true
+              
+              - column:
+                  name: sort_order
+                  type: INTEGER
+                  defaultValue: 0
+
+        - insert:
+            tableName: gift_occasions
+            columns:
+              - column:
+                  name: id
+                  value: dia-de-la-madre
+              - column:
+                  name: name
+                  value: Día de la Madre
+              - column:
+                  name: slug
+                  value: dia-de-la-madre
+
+        - insert:
+            tableName: gift_occasions
+            columns:
+              - column:
+                  name: id
+                  value: cumpleanos
+              - column:
+                  name: name
+                  value: Cumpleaños
+              - column:
+                  name: slug
+                  value: cumpleanos
+
+        - insert:
+            tableName: gift_occasions
+            columns:
+              - column:
+                  name: id
+                  value: aniversario
+              - column:
+                  name: name
+                  value: Aniversario
+              - column:
+                  name: slug
+                  value: aniversario
+
+        - insert:
+            tableName: gift_occasions
+            columns:
+              - column:
+                  name: id
+                  value: navidad
+              - column:
+                  name: name
+                  value: Navidad
+              - column:
+                  name: slug
+                  value: navidad
+
+        - insert:
+            tableName: gift_occasions
+            columns:
+              - column:
+                  name: id
+                  value: san-valentin
+              - column:
+                  name: name
+                  value: San Valentín
+              - column:
+                  name: slug
+                  value: san-valentin
+
+        - insert:
+            tableName: gift_occasions
+            columns:
+              - column:
+                  name: id
+                  value: graduacion
+              - column:
+                  name: name
+                  value: Graduación
+              - column:
+                  name: slug
+                  value: graduacion
+
+        - insert:
+            tableName: gift_occasions
+            columns:
+              - column:
+                  name: id
+                  value: sin-ocasion
+              - column:
+                  name: name
+                  value: Sin ocasión
+              - column:
+                  name: slug
+                  value: sin-ocasion
+
+        # Tabla de Gift Guides
+        - createTable:
+            tableName: gift_guides
+            remarks: Guías de regalo curadas
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(50)
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: slug
+                  type: VARCHAR(150)
+                  constraints:
+                    nullable: false
+                    unique: true
+              
+              - column:
+                  name: title
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: subtitle
+                  type: VARCHAR(300)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: cover_image
+                  type: VARCHAR(500)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: cover_image_alt
+                  type: VARCHAR(300)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: occasion_id
+                  type: VARCHAR(30)
+                  constraints:
+                    foreignKeyName: fk_gift_guides_occasions
+                    references: gift_occasions(id)
+              
+              - column:
+                  name: min_budget
+                  type: DECIMAL(10,2)
+                  remarks: Presupuesto mínimo
+              
+              - column:
+                  name: max_budget
+                  type: DECIMAL(10,2)
+                  remarks: Presupuesto máximo (null = sin límite)
+              
+              - column:
+                  name: is_featured
+                  type: BOOLEAN
+                  defaultValue: false
+              
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  defaultValue: 'active'
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+              
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+              
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+
+        - addCheckConstraint:
+            tableName: gift_guides
+            constraintName: chk_gift_guides_status
+            columnName: status
+            expression: status IN ('active', 'archived')
+
+        - createIndex:
+            tableName: gift_guides
+            indexName: idx_gift_guides_slug
+            columns:
+              - column:
+                  name: slug
+
+        - createIndex:
+            tableName: gift_guides
+            indexName: idx_gift_guides_occasion
+            columns:
+              - column:
+                  name: occasion_id
+
+        - createIndex:
+            tableName: gift_guides
+            indexName: idx_gift_guides_featured
+            columns:
+              - column:
+                  name: is_featured
+            where: is_featured = TRUE
+
+        - sql:
+            sql: |
+              CREATE TRIGGER update_gift_guides_updated_at 
+              BEFORE UPDATE ON gift_guides
+              FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+        # Productos en gift guides
+        - createTable:
+            tableName: gift_guide_products
+            remarks: Productos incluidos en cada guía de regalo
+            columns:
+              - column:
+                  name: guide_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_guide_products_guide
+                    references: gift_guides(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: product_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                  remarks: Referencia a product
+              
+              - column:
+                  name: sort_order
+                  type: INTEGER
+                  defaultValue: 0
+              
+              - column:
+                  name: added_reason
+                  type: TEXT
+                  remarks: Razón de inclusión en la guía
+              
+              - column:
+                  name: added_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+            
+            primaryKey:
+              columnNames: guide_id, product_id
+
+        - createIndex:
+            tableName: gift_guide_products
+            indexName: idx_guide_products_guide
+            columns:
+              - column:
+                  name: guide_id
+              - column:
+                  name: sort_order
+
+        # SEO Metadata dinámico
+        - createTable:
+            tableName: seo_metadata
+            remarks: Metadatos SEO por página/URL
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: uuid_generate_v4()
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: page_path
+                  type: VARCHAR(300)
+                  constraints:
+                    nullable: false
+                    unique: true
+                  remarks: Ruta de la página ej. /producto/collar-amatista-serena
+              
+              - column:
+                  name: page_type
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                  remarks: Tipo de página (product, collection, article, static)
+              
+              - column:
+                  name: entity_id
+                  type: VARCHAR(50)
+                  remarks: ID de la entidad relacionada
+              
+              - column:
+                  name: seo_title
+                  type: VARCHAR(150)
+              
+              - column:
+                  name: seo_description
+                  type: VARCHAR(300)
+              
+              - column:
+                  name: seo_keywords
+                  type: VARCHAR(500)
+              
+              - column:
+                  name: og_title
+                  type: VARCHAR(150)
+                  remarks: Título Open Graph
+              
+              - column:
+                  name: og_description
+                  type: VARCHAR(300)
+              
+              - column:
+                  name: og_image
+                  type: VARCHAR(500)
+              
+              - column:
+                  name: og_type
+                  type: VARCHAR(50)
+                  defaultValue: 'website'
+                  remarks: Tipo Open Graph (product, article, website)
+              
+              - column:
+                  name: canonical_url
+                  type: VARCHAR(500)
+              
+              - column:
+                  name: no_index
+                  type: BOOLEAN
+                  defaultValue: false
+                  remarks: Si debe ser excluido de indexación
+              
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+              
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+
+        - createIndex:
+            tableName: seo_metadata
+            indexName: idx_seo_path
+            columns:
+              - column:
+                  name: page_path
+
+        - createIndex:
+            tableName: seo_metadata
+            indexName: idx_seo_type
+            columns:
+              - column:
+                  name: page_type
+
+        - createIndex:
+            tableName: seo_metadata
+            indexName: idx_seo_entity
+            columns:
+              - column:
+                  name: page_type
+              - column:
+                  name: entity_id
+
+      rollback:
+        - dropTable:
+            tableName: seo_metadata
+        - dropTable:
+            tableName: gift_guide_products
+        - dropTable:
+            tableName: gift_guides
+        - dropTable:
+            tableName: gift_occasions
+        - dropTable:
+            tableName: article_products
+        - dropTable:
+            tableName: article_related
+        - dropTable:
+            tableName: article_tags
+        - sql:
+            sql: DROP TRIGGER IF EXISTS update_gift_guides_updated_at ON gift_guides
+        - sql:
+            sql: DROP TRIGGER IF EXISTS update_journal_articles_updated_at ON journal_articles
+        - dropTable:
+            tableName: journal_articles
+        - dropTable:
+            tableName: journal_categories

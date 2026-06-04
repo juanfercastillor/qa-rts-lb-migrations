@@ -1,0 +1,314 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-create-collections
+      author: queenarts-team
+      comment: Crear tablas de colecciones editoriales y sus relaciones
+      
+      changes:
+        # Tabla maestra de colecciones
+        - createTable:
+            tableName: collections
+            remarks: Colecciones editoriales de Queen Arts
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(50)
+                  constraints:
+                    primaryKey: true
+                  remarks: ID de colección ej. col-001
+              
+              - column:
+                  name: slug
+                  type: VARCHAR(150)
+                  constraints:
+                    nullable: false
+                    unique: true
+                  remarks: URL-friendly identifier
+              
+              - column:
+                  name: name
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+                  remarks: Nombre de la colección
+              
+              - column:
+                  name: type_id
+                  type: VARCHAR(30)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_collections_types
+                    references: collection_types(id)
+                  remarks: Tipo de colección (emotional, temporal, aesthetic, commercial)
+              
+              - column:
+                  name: tagline
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+                  remarks: Subtítulo corto y memorable
+              
+              - column:
+                  name: description
+                  type: TEXT
+                  constraints:
+                    nullable: false
+                  remarks: Descripción introductoria
+              
+              - column:
+                  name: story
+                  type: TEXT
+                  remarks: Narrativa editorial completa
+              
+              # Imágenes
+              - column:
+                  name: hero_image
+                  type: VARCHAR(500)
+                  constraints:
+                    nullable: false
+                  remarks: Imagen principal de la colección
+              
+              - column:
+                  name: hero_image_alt
+                  type: VARCHAR(300)
+                  constraints:
+                    nullable: false
+                  remarks: Texto alternativo de hero image
+              
+              - column:
+                  name: story_image
+                  type: VARCHAR(500)
+                  remarks: Imagen para sección de storytelling
+              
+              # SEO
+              - column:
+                  name: seo_title
+                  type: VARCHAR(150)
+              
+              - column:
+                  name: seo_description
+                  type: VARCHAR(300)
+              
+              # Tema visual como JSONB
+              - column:
+                  name: visual_theme
+                  type: JSONB
+                  defaultValue: '{}'
+                  remarks: Configuración visual (colores, opacidad, mood)
+              
+              # Estado y fechas
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  defaultValue: 'draft'
+                  constraints:
+                    nullable: false
+                  remarks: Estado (active, upcoming, archived, draft)
+              
+              - column:
+                  name: launch_date
+                  type: DATE
+                  remarks: Fecha de lanzamiento de la colección
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: published_at
+                  type: TIMESTAMPTZ
+                  remarks: Fecha de publicación
+              
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+              
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+
+        - addCheckConstraint:
+            tableName: collections
+            constraintName: chk_collections_status
+            columnName: status
+            expression: status IN ('active', 'upcoming', 'archived', 'draft')
+
+        - createIndex:
+            tableName: collections
+            indexName: idx_collections_slug
+            columns:
+              - column:
+                  name: slug
+
+        - createIndex:
+            tableName: collections
+            indexName: idx_collections_status
+            columns:
+              - column:
+                  name: status
+
+        - createIndex:
+            tableName: collections
+            indexName: idx_collections_type
+            columns:
+              - column:
+                  name: type_id
+
+        - createIndex:
+            tableName: collections
+            indexName: idx_collections_active
+            columns:
+              - column:
+                  name: status
+            where: status = 'active'
+
+        - createIndex:
+            tableName: collections
+            indexName: idx_collections_launch
+            columns:
+              - column:
+                  name: launch_date
+
+        # Trigger para updated_at
+        - sql:
+            sql: |
+              CREATE TRIGGER update_collections_updated_at 
+              BEFORE UPDATE ON collections
+              FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+        # Relación N:M colecciones-productos
+        - createTable:
+            tableName: collection_products
+            remarks: Productos incluidos en cada colección
+            columns:
+              - column:
+                  name: collection_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_collection_products_collection
+                    references: collections(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: product_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                  remarks: Referencia a product (no FK cruz-servicio)
+              
+              - column:
+                  name: sort_order
+                  type: INTEGER
+                  defaultValue: 0
+                  remarks: Orden de visualización en la colección
+              
+              - column:
+                  name: is_featured
+                  type: BOOLEAN
+                  defaultValue: false
+                  remarks: Si es un producto destacado en la colección
+              
+              - column:
+                  name: added_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+            
+            primaryKey:
+              columnNames: collection_id, product_id
+
+        - createIndex:
+            tableName: collection_products
+            indexName: idx_collection_products_collection
+            columns:
+              - column:
+                  name: collection_id
+              - column:
+                  name: sort_order
+
+        - createIndex:
+            tableName: collection_products
+            indexName: idx_collection_products_featured
+            columns:
+              - column:
+                  name: collection_id
+              - column:
+                  name: is_featured
+            where: is_featured = TRUE
+
+        # Relación N:M colecciones relacionadas
+        - createTable:
+            tableName: collection_related
+            remarks: Colecciones relacionadas entre sí
+            columns:
+              - column:
+                  name: collection_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_collection_related_source
+                    references: collections(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: related_collection_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_collection_related_target
+                    references: collections(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: sort_order
+                  type: INTEGER
+                  defaultValue: 0
+            
+            primaryKey:
+              columnNames: collection_id, related_collection_id
+
+        - createIndex:
+            tableName: collection_related
+            indexName: idx_collection_related
+            columns:
+              - column:
+                  name: collection_id
+
+        # Vista para estadísticas de colección
+        - createView:
+            viewName: collection_stats
+            remarks: Vista con conteos de productos por colección
+            selectQuery: |
+              SELECT 
+                c.id,
+                c.name,
+                c.status,
+                COUNT(cp.product_id) FILTER (WHERE cp.product_id IS NOT NULL) as product_count,
+                COUNT(cp.product_id) FILTER (WHERE cp.is_featured = TRUE) as featured_count,
+                MIN(cp.added_at) as first_product_added,
+                MAX(cp.added_at) as last_product_added
+              FROM collections c
+              LEFT JOIN collection_products cp ON c.id = cp.collection_id
+              GROUP BY c.id, c.name, c.status
+
+      rollback:
+        - dropView:
+            viewName: collection_stats
+        - dropTable:
+            tableName: collection_related
+        - dropTable:
+            tableName: collection_products
+        - sql:
+            sql: DROP TRIGGER IF EXISTS update_collections_updated_at ON collections
+        - dropTable:
+            tableName: collections

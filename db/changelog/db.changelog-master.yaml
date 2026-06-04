@@ -1,0 +1,58 @@
+databaseChangeLog:
+  - logicalFilePath: db/changelog/db.changelog-master.yaml
+
+  - include:
+      file: changesets/001-create-categories-and-tags.yaml
+      relativeToChangelogFile: true
+
+  - include:
+      file: changesets/002-create-products.yaml
+      relativeToChangelogFile: true
+
+  - include:
+      file: changesets/003-create-product-relations.yaml
+      relativeToChangelogFile: true
+
+  - include:
+      file: changesets/004-create-collections.yaml
+      relativeToChangelogFile: true
+
+  - include:
+      file: changesets/005-create-content-tables.yaml
+      relativeToChangelogFile: true
+
+  - include:
+      file: changesets/006-create-inventory.yaml
+      relativeToChangelogFile: true
+
+  - include:
+      file: changesets/007-create-cart.yaml
+      relativeToChangelogFile: true
+
+  - include:
+      file: changesets/008-create-orders.yaml
+      relativeToChangelogFile: true
+
+  - include:
+      file: changesets/009-create-payments.yaml
+      relativeToChangelogFile: true
+
+  - include:
+      file: changesets/010-create-users-and-addresses.yaml
+      relativeToChangelogFile: true
+
+  - include:
+      file: changesets/011-create-notifications.yaml
+      relativeToChangelogFile: true
+
+  - include:
+      file: changesets/012-create-media-assets.yaml
+      relativeToChangelogFile: true
+
+  - include:
+      file: changesets/013-seed-initial-data.yaml
+      relativeToChangelogFile: true
+
+  - include:
+      file: changesets/014-create-indexes-and-views.yaml
+      relativeToChangelogFile: true

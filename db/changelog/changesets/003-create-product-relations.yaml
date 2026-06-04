@@ -1,0 +1,360 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-create-product-relations
+      author: queenarts-team
+      comment: Crear tablas de imágenes, tags, productos relacionados y auditoría de precios
+      
+      changes:
+        # Tabla de imágenes de productos
+        - createTable:
+            tableName: product_images
+            remarks: Galería de imágenes por producto
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: uuid_generate_v4()
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: product_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_product_images_products
+                    references: products(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: src
+                  type: VARCHAR(500)
+                  constraints:
+                    nullable: false
+                  remarks: URL de la imagen principal
+              
+              - column:
+                  name: alt
+                  type: VARCHAR(300)
+                  constraints:
+                    nullable: false
+                  remarks: Texto alternativo para accesibilidad
+              
+              - column:
+                  name: thumbnail
+                  type: VARCHAR(500)
+                  remarks: URL de la versión thumbnail
+              
+              - column:
+                  name: is_primary
+                  type: BOOLEAN
+                  defaultValue: false
+                  remarks: Si es la imagen principal del producto
+              
+              - column:
+                  name: sort_order
+                  type: INTEGER
+                  defaultValue: 0
+                  remarks: Orden en la galería
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+
+        - createIndex:
+            tableName: product_images
+            indexName: idx_product_images_product
+            columns:
+              - column:
+                  name: product_id
+
+        - createIndex:
+            tableName: product_images
+            indexName: idx_product_images_primary
+            columns:
+              - column:
+                  name: product_id
+              - column:
+                  name: is_primary
+            where: is_primary = TRUE
+
+        # Relación N:M productos-tags
+        - createTable:
+            tableName: product_tags
+            remarks: Relación entre productos y tags
+            columns:
+              - column:
+                  name: product_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_product_tags_products
+                    references: products(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: tag_id
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_product_tags_tags
+                    references: tags(id)
+                    deleteCascade: true
+            
+            primaryKey:
+              columnNames: product_id, tag_id
+
+        - createIndex:
+            tableName: product_tags
+            indexName: idx_product_tags_tag
+            columns:
+              - column:
+                  name: tag_id
+
+        # Relación N:M productos relacionados
+        - createTable:
+            tableName: product_related
+            remarks: Relación de productos similares, complementarios o bundles
+            columns:
+              - column:
+                  name: product_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_product_related_source
+                    references: products(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: related_product_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_product_related_target
+                    references: products(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: relation_type
+                  type: VARCHAR(30)
+                  defaultValue: 'related'
+                  remarks: Tipo de relación (related, bundle, similar)
+              
+              - column:
+                  name: sort_order
+                  type: INTEGER
+                  defaultValue: 0
+                  remarks: Orden de visualización
+            
+            primaryKey:
+              columnNames: product_id, related_product_id
+
+        - addCheckConstraint:
+            tableName: product_related
+            constraintName: chk_product_related_type
+            columnName: relation_type
+            expression: relation_type IN ('related', 'bundle', 'similar')
+
+        - createIndex:
+            tableName: product_related
+            indexName: idx_product_related_source
+            columns:
+              - column:
+                  name: product_id
+
+        # Tabla de auditoría de precios
+        - createTable:
+            tableName: pricing_audit_log
+            remarks: Historial de cambios de precio para compliance y análisis
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: uuid_generate_v4()
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: product_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_pricing_audit_products
+                    references: products(id)
+              
+              - column:
+                  name: old_price
+                  type: DECIMAL(10,2)
+                  remarks: Precio anterior
+              
+              - column:
+                  name: new_price
+                  type: DECIMAL(10,2)
+                  constraints:
+                    nullable: false
+                  remarks: Nuevo precio
+              
+              - column:
+                  name: changed_by
+                  type: VARCHAR(100)
+                  remarks: Usuario o sistema que realizó el cambio
+              
+              - column:
+                  name: changed_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: reason
+                  type: TEXT
+                  remarks: Razón del cambio de precio
+
+        - createIndex:
+            tableName: pricing_audit_log
+            indexName: idx_pricing_audit_product_date
+            columns:
+              - column:
+                  name: product_id
+              - column:
+                  name: changed_at
+            descending:
+              - false
+              - true
+
+        # Tabla de imágenes genérica para media-service
+        - createTable:
+            tableName: media_assets
+            remarks: Assets digitales gestionados por media-service
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: uuid_generate_v4()
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: entity_type
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                  remarks: Tipo de entidad (product, collection, article, etc.)
+              
+              - column:
+                  name: entity_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                  remarks: ID de la entidad relacionada
+              
+              - column:
+                  name: asset_type
+                  type: VARCHAR(30)
+                  constraints:
+                    nullable: false
+                  remarks: Tipo de asset (image, video, document)
+              
+              - column:
+                  name: original_filename
+                  type: VARCHAR(255)
+                  remarks: Nombre original del archivo
+              
+              - column:
+                  name: mime_type
+                  type: VARCHAR(100)
+                  remarks: MIME type (image/jpeg, image/png, etc.)
+              
+              - column:
+                  name: size_bytes
+                  type: BIGINT
+                  remarks: Tamaño en bytes
+              
+              - column:
+                  name: url
+                  type: VARCHAR(500)
+                  constraints:
+                    nullable: false
+                  remarks: URL pública del asset
+              
+              - column:
+                  name: thumbnail_url
+                  type: VARCHAR(500)
+                  remarks: URL del thumbnail
+              
+              - column:
+                  name: width
+                  type: INTEGER
+                  remarks: Ancho en píxeles
+              
+              - column:
+                  name: height
+                  type: INTEGER
+                  remarks: Alto en píxeles
+              
+              - column:
+                  name: alt_text
+                  type: VARCHAR(300)
+                  remarks: Texto alternativo
+              
+              - column:
+                  name: is_primary
+                  type: BOOLEAN
+                  defaultValue: false
+                  remarks: Si es el asset principal
+              
+              - column:
+                  name: sort_order
+                  type: INTEGER
+                  defaultValue: 0
+              
+              - column:
+                  name: metadata
+                  type: JSONB
+                  defaultValue: '{}'
+                  remarks: Metadatos adicionales EXIF, etc.
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+              
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+
+        - createIndex:
+            tableName: media_assets
+            indexName: idx_media_entity
+            columns:
+              - column:
+                  name: entity_type
+              - column:
+                  name: entity_id
+
+        - createIndex:
+            tableName: media_assets
+            indexName: idx_media_primary
+            columns:
+              - column:
+                  name: entity_type
+              - column:
+                  name: entity_id
+              - column:
+                  name: is_primary
+            where: is_primary = TRUE
+
+      rollback:
+        - dropTable:
+            tableName: media_assets
+        - dropTable:
+            tableName: pricing_audit_log
+        - dropTable:
+            tableName: product_related
+        - dropTable:
+            tableName: product_tags
+        - dropTable:
+            tableName: product_images

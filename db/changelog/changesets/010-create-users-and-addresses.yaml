@@ -1,0 +1,477 @@
+databaseChangeLog:
+  - changeSet:
+      id: 010-create-users-and-addresses
+      author: queenarts-team
+      comment: Crear tablas para user-service (perfiles, direcciones, preferencias)
+      
+      changes:
+        # Tabla de perfiles de usuario
+        - createTable:
+            tableName: user_profiles
+            remarks: Perfiles de usuarios autenticados
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(100)
+                  constraints:
+                    primaryKey: true
+                  remarks: ID único del usuario (del auth-service)
+              
+              - column:
+                  name: email
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+              
+              - column:
+                  name: email_verified
+                  type: BOOLEAN
+                  defaultValue: false
+              
+              - column:
+                  name: name
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: first_name
+                  type: VARCHAR(100)
+              
+              - column:
+                  name: last_name
+                  type: VARCHAR(100)
+              
+              - column:
+                  name: phone
+                  type: VARCHAR(50)
+              
+              - column:
+                  name: phone_verified
+                  type: BOOLEAN
+                  defaultValue: false
+              
+              - column:
+                  name: avatar_url
+                  type: VARCHAR(500)
+              
+              - column:
+                  name: birth_date
+                  type: DATE
+              
+              - column:
+                  name: gender
+                  type: VARCHAR(20)
+                  remarks: Género (opcional, para preferencias)
+              
+              - column:
+                  name: language
+                  type: VARCHAR(10)
+                  defaultValue: 'es'
+                  remarks: Idioma preferido
+              
+              - column:
+                  name: timezone
+                  type: VARCHAR(50)
+                  defaultValue: 'America/Guayaquil'
+                  remarks: Zona horaria (Ecuador)
+              
+              - column:
+                  name: currency_preference
+                  type: VARCHAR(3)
+                  defaultValue: 'USD'
+                  remarks: Moneda preferida
+              
+              # Preferencias de marketing
+              - column:
+                  name: newsletter_subscribed
+                  type: BOOLEAN
+                  defaultValue: true
+              
+              - column:
+                  name: marketing_sms
+                  type: BOOLEAN
+                  defaultValue: false
+              
+              - column:
+                  name: marketing_push
+                  type: BOOLEAN
+                  defaultValue: false
+              
+              # Preferencias de compra
+              - column:
+                  name: preferred_payment_method
+                  type: VARCHAR(50)
+              
+              - column:
+                  name: preferred_shipping_address_id
+                  type: VARCHAR(100)
+                  remarks: ID de dirección predeterminada
+              
+              # Metadata
+              - column:
+                  name: registration_source
+                  type: VARCHAR(50)
+                  defaultValue: 'web'
+                  remarks: Origen del registro (web, mobile, admin)
+              
+              - column:
+                  name: last_login_at
+                  type: TIMESTAMPTZ
+              
+              - column:
+                  name: last_login_ip
+                  type: VARCHAR(45)
+              
+              - column:
+                  name: login_count
+                  type: INTEGER
+                  defaultValue: 0
+              
+              # Estado
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  defaultValue: 'active'
+                  constraints:
+                    nullable: false
+                  remarks: Estado (active, suspended, deleted)
+              
+              - column:
+                  name: notes
+                  type: TEXT
+                  remarks: Notas internas del equipo
+              
+              # Fechas
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: deleted_at
+                  type: TIMESTAMPTZ
+                  remarks: Soft delete
+
+        - addCheckConstraint:
+            tableName: user_profiles
+            constraintName: chk_user_status
+            columnName: status
+            expression: status IN ('active', 'suspended', 'deleted')
+
+        - createIndex:
+            tableName: user_profiles
+            indexName: idx_users_email
+            columns:
+              - column:
+                  name: email
+
+        - createIndex:
+            tableName: user_profiles
+            indexName: idx_users_status
+            columns:
+              - column:
+                  name: status
+
+        - sql:
+            sql: |
+              CREATE TRIGGER update_users_updated_at 
+              BEFORE UPDATE ON user_profiles
+              FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+        # Tabla de direcciones de envío/facturación
+        - createTable:
+            tableName: addresses
+            remarks: Direcciones de usuarios (envío y facturación)
+            columns:
+              - column:
+                  name: id
+                  type: VARCHAR(100)
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: user_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_addresses_user
+                    references: user_profiles(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: type
+                  type: VARCHAR(20)
+                  defaultValue: 'shipping'
+                  constraints:
+                    nullable: false
+                  remarks: Tipo (shipping, billing, both)
+              
+              - column:
+                  name: label
+                  type: VARCHAR(50)
+                  remarks: Etiqueta (Casa, Oficina, etc.)
+              
+              - column:
+                  name: is_default
+                  type: BOOLEAN
+                  defaultValue: false
+                  remarks: Si es la dirección predeterminada
+              
+              - column:
+                  name: is_verified
+                  type: BOOLEAN
+                  defaultValue: false
+                  remarks: Si fue verificada (geocodificación)
+              
+              # Datos del destinatario
+              - column:
+                  name: full_name
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: phone
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              
+              # Dirección
+              - column:
+                  name: street_address_1
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                  remarks: Calle principal
+              
+              - column:
+                  name: street_address_2
+                  type: VARCHAR(255)
+                  remarks: Apartamento, piso, etc.
+              
+              - column:
+                  name: city
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: state_province
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                  remarks: Provincia/Estado
+              
+              - column:
+                  name: postal_code
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              
+              - column:
+                  name: country_code
+                  type: VARCHAR(2)
+                  defaultValue: 'EC'
+                  constraints:
+                    nullable: false
+                  remarks: Código ISO de país (EC = Ecuador)
+              
+              - column:
+                  name: country_name
+                  type: VARCHAR(100)
+                  defaultValue: 'Ecuador'
+              
+              # Coordenadas (para mapas)
+              - column:
+                  name: latitude
+                  type: DECIMAL(10,8)
+              
+              - column:
+                  name: longitude
+                  type: DECIMAL(11,8)
+              
+              # Metadata
+              - column:
+                  name: delivery_instructions
+                  type: TEXT
+                  remarks: Instrucciones especiales de entrega
+              
+              - column:
+                  name: tax_id
+                  type: VARCHAR(20)
+                  remarks: RUC/Cédula para facturación Ecuador
+              
+              - column:
+                  name: tax_id_type
+                  type: VARCHAR(20)
+                  remarks: Tipo de ID fiscal (ruc, cedula, pasaporte)
+              
+              # Fechas
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+              
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+
+        - addCheckConstraint:
+            tableName: addresses
+            constraintName: chk_address_type
+            columnName: type
+            expression: type IN ('shipping', 'billing', 'both')
+
+        - createIndex:
+            tableName: addresses
+            indexName: idx_addresses_user
+            columns:
+              - column:
+                  name: user_id
+              - column:
+                  name: type
+
+        - createIndex:
+            tableName: addresses
+            indexName: idx_addresses_default
+            columns:
+              - column:
+                  name: user_id
+              - column:
+                  name: is_default
+            where: is_default = true
+
+        - createIndex:
+            tableName: addresses
+            indexName: idx_addresses_country
+            columns:
+              - column:
+                  name: country_code
+
+        - sql:
+            sql: |
+              CREATE TRIGGER update_addresses_updated_at 
+              BEFORE UPDATE ON addresses
+              FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
+
+        # Tabla de wishlist/favoritos
+        - createTable:
+            tableName: wishlist_items
+            remarks: Productos favoritos de usuarios
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  defaultValueComputed: uuid_generate_v4()
+                  constraints:
+                    primaryKey: true
+              
+              - column:
+                  name: user_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_wishlist_user
+                    references: user_profiles(id)
+                    deleteCascade: true
+              
+              - column:
+                  name: product_id
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+                  remarks: Referencia a producto
+              
+              - column:
+                  name: added_price
+                  type: DECIMAL(10,2)
+                  remarks: Precio al momento de agregar (alerta de bajada)
+              
+              - column:
+                  name: notify_on_sale
+                  type: BOOLEAN
+                  defaultValue: true
+                  remarks: Notificar si baja de precio
+              
+              - column:
+                  name: notify_on_stock
+                  type: BOOLEAN
+                  defaultValue: true
+                  remarks: Notificar si vuelve a stock
+              
+              - column:
+                  name: notes
+                  type: TEXT
+                  remarks: Notas privadas del usuario
+              
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  defaultValueComputed: NOW()
+
+        - createIndex:
+            tableName: wishlist_items
+            indexName: idx_wishlist_user
+            columns:
+              - column:
+                  name: user_id
+              - column:
+                  name: created_at
+            descending:
+              - false
+              - true
+
+        - createIndex:
+            tableName: wishlist_items
+            indexName: idx_wishlist_product
+            columns:
+              - column:
+                  name: product_id
+
+        # Vista de usuarios con resumen de actividad
+        - createView:
+            viewName: user_activity_summary
+            remarks: Resumen de actividad de usuarios
+            selectQuery: |
+              SELECT 
+                u.id,
+                u.email,
+                u.name,
+                u.status,
+                u.created_at,
+                u.last_login_at,
+                COUNT(DISTINCT o.id) as order_count,
+                COALESCE(SUM(o.total), 0) as total_spent,
+                COUNT(DISTINCT w.product_id) as wishlist_count,
+                COUNT(DISTINCT a.id) as address_count
+              FROM user_profiles u
+              LEFT JOIN orders o ON u.id = o.user_id AND o.status NOT IN ('cancelled')
+              LEFT JOIN wishlist_items w ON u.id = w.user_id
+              LEFT JOIN addresses a ON u.id = a.user_id
+              GROUP BY u.id, u.email, u.name, u.status, u.created_at, u.last_login_at
+
+      rollback:
+        - dropView:
+            viewName: user_activity_summary
+        - dropTable:
+            tableName: wishlist_items
+        - sql:
+            sql: DROP TRIGGER IF EXISTS update_addresses_updated_at ON addresses
+        - dropTable:
+            tableName: addresses
+        - sql:
+            sql: DROP TRIGGER IF EXISTS update_users_updated_at ON user_profiles
+        - dropTable:
+            tableName: user_profiles

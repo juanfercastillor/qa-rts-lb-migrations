@@ -1,0 +1,795 @@
+databaseChangeLog:
+  - changeSet:
+      id: 012-seed-initial-data
+      author: queenarts-team
+      comment: Datos iniciales del sistema (categorías, tags, tipos, plantillas)
+      
+      changes:
+        # ============================================================
+        # CATEGORÍAS DE PRODUCTOS
+        # ============================================================
+        - insert:
+            tableName: categories
+            columns:
+              - column:
+                  name: id
+                  value: collares
+              - column:
+                  name: name
+                  value: Collares
+              - column:
+                  name: slug
+                  value: collares
+              - column:
+                  name: description
+                  value: Joyas para el cuello en plata .925
+              - column:
+                  name: sort_order
+                  value: 1
+
+        - insert:
+            tableName: categories
+            columns:
+              - column:
+                  name: id
+                  value: aretes
+              - column:
+                  name: name
+                  value: Aretes
+              - column:
+                  name: slug
+                  value: aretes
+              - column:
+                  name: description
+                  value: Pendientes y colgantes de plata
+              - column:
+                  name: sort_order
+                  value: 2
+
+        - insert:
+            tableName: categories
+            columns:
+              - column:
+                  name: id
+                  value: pulseras
+              - column:
+                  name: name
+                  value: Pulseras
+              - column:
+                  name: slug
+                  value: pulseras
+              - column:
+                  name: description
+                  value: Para la muñeca, minimalistas y apilables
+              - column:
+                  name: sort_order
+                  value: 3
+
+        - insert:
+            tableName: categories
+            columns:
+              - column:
+                  name: id
+                  value: anillos
+              - column:
+                  name: name
+                  value: Anillos
+              - column:
+                  name: slug
+                  value: anillos
+              - column:
+                  name: description
+                  value: Piezas para la mano con piedras naturales
+              - column:
+                  name: sort_order
+                  value: 4
+
+        - insert:
+            tableName: categories
+            columns:
+              - column:
+                  name: id
+                  value: dijes
+              - column:
+                  name: name
+                  value: Dijes
+              - column:
+                  name: slug
+                  value: dijes
+              - column:
+                  name: description
+                  value: Colgantes sueltos para personalizar
+              - column:
+                  name: sort_order
+                  value: 5
+
+        - insert:
+            tableName: categories
+            columns:
+              - column:
+                  name: id
+                  value: sets
+              - column:
+                  name: name
+                  value: Sets
+              - column:
+                  name: slug
+                  value: sets
+              - column:
+                  name: description
+                  value: Conjuntos coordinados de joyería
+              - column:
+                  name: sort_order
+                  value: 6
+
+        # ============================================================
+        # TAGS POPULARES
+        # ============================================================
+        - insert:
+            tableName: tags
+            columns:
+              - column:
+                  name: name
+                  value: plata
+              - column:
+                  name: slug
+                  value: plata
+              - column:
+                  name: is_popular
+                  value: true
+
+        - insert:
+            tableName: tags
+            columns:
+              - column:
+                  name: name
+                  value: amatista
+              - column:
+                  name: slug
+                  value: amatista
+              - column:
+                  name: is_popular
+                  value: true
+
+        - insert:
+            tableName: tags
+            columns:
+              - column:
+                  name: name
+                  value: ónix
+              - column:
+                  name: slug
+                  value: onix
+              - column:
+                  name: is_popular
+                  value: true
+
+        - insert:
+            tableName: tags
+            columns:
+              - column:
+                  name: name
+                  value: corazón
+              - column:
+                  name: slug
+                  value: corazon
+              - column:
+                  name: is_popular
+                  value: true
+
+        - insert:
+            tableName: tags
+            columns:
+              - column:
+                  name: name
+                  value: minimalista
+              - column:
+                  name: slug
+                  value: minimalista
+              - column:
+                  name: is_popular
+                  value: true
+
+        - insert:
+            tableName: tags
+            columns:
+              - column:
+                  name: name
+                  value: regalo
+              - column:
+                  name: slug
+                  value: regalo
+              - column:
+                  name: is_popular
+                  value: true
+
+        - insert:
+            tableName: tags
+            columns:
+              - column:
+                  name: name
+                  value: día de la madre
+              - column:
+                  name: slug
+                  value: dia-de-la-madre
+              - column:
+                  name: is_popular
+                  value: true
+
+        - insert:
+            tableName: tags
+            columns:
+              - column:
+                  name: name
+                  value: elegante
+              - column:
+                  name: slug
+                  value: elegante
+              - column:
+                  name: is_popular
+                  value: false
+
+        - insert:
+            tableName: tags
+            columns:
+              - column:
+                  name: name
+                  value: piedra natural
+              - column:
+                  name: slug
+                  value: piedra-natural
+              - column:
+                  name: is_popular
+                  value: false
+
+        - insert:
+            tableName: tags
+            columns:
+              - column:
+                  name: name
+                  value: hecho a mano
+              - column:
+                  name: slug
+                  value: hecho-a-mano
+              - column:
+                  name: is_popular
+                  value: false
+
+        # ============================================================
+        # TIPOS DE COLECCIÓN
+        # ============================================================
+        - insert:
+            tableName: collection_types
+            columns:
+              - column:
+                  name: id
+                  value: emotional
+              - column:
+                  name: name
+                  value: Emocional — Universos narrativos
+              - column:
+                  name: description
+                  value: Colecciones basadas en emociones y significados profundos
+
+        - insert:
+            tableName: collection_types
+            columns:
+              - column:
+                  name: id
+                  value: temporal
+              - column:
+                  name: name
+                  value: Temporal — Momentos específicos
+              - column:
+                  name: description
+                  value: Colecciones para momentos y fechas especiales como Día de la Madre
+
+        - insert:
+            tableName: collection_types
+            columns:
+              - column:
+                  name: id
+                  value: aesthetic
+              - column:
+                  name: name
+                  value: Estética — Visiones visuales
+              - column:
+                  name: description
+                  value: Colecciones basadas en estética y diseño visual
+
+        - insert:
+            tableName: collection_types
+            columns:
+              - column:
+                  name: id
+                  value: commercial
+              - column:
+                  name: name
+                  value: Comercial — Estrategia de venta
+              - column:
+                  name: description
+                  value: Colecciones para campañas comerciales específicas
+
+        # ============================================================
+        # OCASIONES DE REGALO
+        # ============================================================
+        - insert:
+            tableName: gift_occasions
+            columns:
+              - column:
+                  name: id
+                  value: dia-de-la-madre
+              - column:
+                  name: name
+                  value: Día de la Madre
+              - column:
+                  name: slug
+                  value: dia-de-la-madre
+              - column:
+                  name: sort_order
+                  value: 1
+
+        - insert:
+            tableName: gift_occasions
+            columns:
+              - column:
+                  name: id
+                  value: cumpleanos
+              - column:
+                  name: name
+                  value: Cumpleaños
+              - column:
+                  name: slug
+                  value: cumpleanos
+              - column:
+                  name: sort_order
+                  value: 2
+
+        - insert:
+            tableName: gift_occasions
+            columns:
+              - column:
+                  name: id
+                  value: aniversario
+              - column:
+                  name: name
+                  value: Aniversario
+              - column:
+                  name: slug
+                  value: aniversario
+              - column:
+                  name: sort_order
+                  value: 3
+
+        - insert:
+            tableName: gift_occasions
+            columns:
+              - column:
+                  name: id
+                  value: navidad
+              - column:
+                  name: name
+                  value: Navidad
+              - column:
+                  name: slug
+                  value: navidad
+              - column:
+                  name: sort_order
+                  value: 4
+
+        - insert:
+            tableName: gift_occasions
+            columns:
+              - column:
+                  name: id
+                  value: san-valentin
+              - column:
+                  name: name
+                  value: San Valentín
+              - column:
+                  name: slug
+                  value: san-valentin
+              - column:
+                  name: sort_order
+                  value: 5
+
+        - insert:
+            tableName: gift_occasions
+            columns:
+              - column:
+                  name: id
+                  value: graduacion
+              - column:
+                  name: name
+                  value: Graduación
+              - column:
+                  name: slug
+                  value: graduacion
+              - column:
+                  name: sort_order
+                  value: 6
+
+        - insert:
+            tableName: gift_occasions
+            columns:
+              - column:
+                  name: id
+                  value: sin-ocasion
+              - column:
+                  name: name
+                  value: Sin ocasión
+              - column:
+                  name: slug
+                  value: sin-ocasion
+              - column:
+                  name: sort_order
+                  value: 7
+
+        # ============================================================
+        # PLANTILLAS DE NOTIFICACIÓN
+        # ============================================================
+        - insert:
+            tableName: notification_templates
+            columns:
+              - column:
+                  name: id
+                  value: order_confirmation
+              - column:
+                  name: name
+                  value: Confirmación de Orden
+              - column:
+                  name: type
+                  value: email
+              - column:
+                  name: subject
+                  value: Tu orden {{orderNumber}} ha sido confirmada — Queen Arts
+              - column:
+                  name: body_html
+                  value: |
+                    <html>
+                    <body style="font-family: 'Cormorant Garamond', Georgia, serif; color: #5A4A42;">
+                      <h1 style="font-weight: 500;">Tu orden está confirmada</h1>
+                      <p>Hola {{customerName}},</p>
+                      <p>Hemos recibido tu orden <strong>{{orderNumber}}</strong> por un total de <strong>{{orderTotal}}</strong>.</p>
+                      <p>Te enviaremos un correo cuando tu joya esté en camino.</p>
+                      <p style="font-style: italic;">Gracias por elegir Queen Arts.</p>
+                    </body>
+                    </html>
+              - column:
+                  name: body_text
+                  value: |
+                    Tu orden está confirmada
+                    
+                    Hola {{customerName}},
+                    
+                    Hemos recibido tu orden {{orderNumber}} por un total de {{orderTotal}}.
+                    Te enviaremos un correo cuando tu joya esté en camino.
+                    
+                    Gracias por elegir Queen Arts.
+              - column:
+                  name: variables
+                  value: '["orderNumber", "customerName", "orderTotal"]'
+
+        - insert:
+            tableName: notification_templates
+            columns:
+              - column:
+                  name: id
+                  value: order_shipped
+              - column:
+                  name: name
+                  value: Orden Enviada
+              - column:
+                  name: type
+                  value: email
+              - column:
+                  name: subject
+                  value: Tu orden {{orderNumber}} está en camino — Queen Arts
+              - column:
+                  name: body_html
+                  value: |
+                    <html>
+                    <body style="font-family: 'Cormorant Garamond', Georgia, serif; color: #5A4A42;">
+                      <h1 style="font-weight: 500;">Tu joya está en camino</h1>
+                      <p>Hola {{customerName}},</p>
+                      <p>Tu orden <strong>{{orderNumber}}</strong> ha sido enviada.</p>
+                      <p>Puedes rastrear tu envío con el número: <strong>{{trackingNumber}}</strong></p>
+                      <p><a href="{{trackingUrl}}" style="color: #5A2E48;">Rastrear envío</a></p>
+                    </body>
+                    </html>
+              - column:
+                  name: variables
+                  value: '["orderNumber", "customerName", "trackingNumber", "trackingUrl"]'
+
+        - insert:
+            tableName: notification_templates
+            columns:
+              - column:
+                  name: id
+                  value: welcome_user
+              - column:
+                  name: name
+                  value: Bienvenida al newsletter
+              - column:
+                  name: type
+                  value: email
+              - column:
+                  name: subject
+                  value: Bienvenida a Queen Arts — El lenguaje de las joyas
+              - column:
+                  name: body_html
+                  value: |
+                    <html>
+                    <body style="font-family: 'Cormorant Garamond', Georgia, serif; color: #5A4A42;">
+                      <h1 style="font-weight: 500;">Bienvenida a Queen Arts</h1>
+                      <p>Hola {{customerName}},</p>
+                      <p>Gracias por unirte a nuestra comunidad. Aquí encontrarás joyas con significado, diseñadas en Ecuador para el mundo.</p>
+                      <p style="font-style: italic;">El lenguaje de las joyas</p>
+                    </body>
+                    </html>
+              - column:
+                  name: variables
+                  value: '["customerName"]'
+
+        - insert:
+            tableName: notification_templates
+            columns:
+              - column:
+                  name: id
+                  value: abandoned_cart
+              - column:
+                  name: name
+                  value: Carrito Abandonado
+              - column:
+                  name: type
+                  value: email
+              - column:
+                  name: subject
+                  value: ¿Olvidaste algo en tu carrito? — Queen Arts
+              - column:
+                  name: body_html
+                  value: |
+                    <html>
+                    <body style="font-family: 'Cormorant Garamond', Georgia, serif; color: #5A4A42;">
+                      <h1 style="font-weight: 500;">¿Olvidaste algo?</h1>
+                      <p>Dejaste algunas joyas esperando en tu carrito.</p>
+                      <p>Las guardamos por ti. Haz click para completar tu compra.</p>
+                      <p><a href="{{cartUrl}}" style="color: #5A2E48;">Ver mi carrito</a></p>
+                    </body>
+                    </html>
+              - column:
+                  name: variables
+                  value: '["cartUrl"]'
+
+        - insert:
+            tableName: notification_templates
+            columns:
+              - column:
+                  name: id
+                  value: price_drop_alert
+              - column:
+                  name: name
+                  value: Alerta de Precio Bajo
+              - column:
+                  name: type
+                  value: email
+              - column:
+                  name: subject
+                  value: ¡El precio de {{productName}} bajó!
+              - column:
+                  name: body_html
+                  value: |
+                    <html>
+                    <body>
+                      <h1>¡Buenas noticias!</h1>
+                      <p>El producto que estabas esperando bajó de precio:</p>
+                      <p><strong>{{productName}}</strong></p>
+                      <p>Antes: {{oldPrice}} | Ahora: {{newPrice}}</p>
+                      <p><a href="{{productUrl}}">Ver producto</a></p>
+                    </body>
+                    </html>
+              - column:
+                  name: variables
+                  value: '["productName", "oldPrice", "newPrice", "productUrl"]'
+
+        # ============================================================
+        # COLECCIONES INICIALES
+        # ============================================================
+        - insert:
+            tableName: collections
+            columns:
+              - column:
+                  name: id
+                  value: col-001
+              - column:
+                  name: slug
+                  value: lenguajes-de-amor
+              - column:
+                  name: name
+                  value: Lenguajes de Amor
+              - column:
+                  name: type_id
+                  value: emotional
+              - column:
+                  name: tagline
+                  value: Porque el amor también habla en plata.
+              - column:
+                  name: description
+                  value: Una colección para quienes expresan lo que sienten a través de lo que llevan.
+              - column:
+                  name: story
+                  value: No todos los lenguajes del amor son verbales. Algunos se llevan puestos, se regalan en momentos especiales, se guardan para siempre. Esta colección celebra todas las formas de amar.
+              - column:
+                  name: hero_image
+                  value: /assets/images/collections/lenguajes-amor/hero.jpg
+              - column:
+                  name: hero_image_alt
+                  value: Colección Lenguajes de Amor — Queen Arts
+              - column:
+                  name: story_image
+                  value: /assets/images/collections/lenguajes-amor/story.jpg
+              - column:
+                  name: seo_title
+                  value: Lenguajes de Amor — Colección Queen Arts
+              - column:
+                  name: seo_description
+                  value: Joyas con significado emocional profundo. Colección Lenguajes de Amor de Queen Arts.
+              - column:
+                  name: visual_theme
+                  value: '{"primaryColor": "#5A2E48", "accentColor": "#CFA6A0", "mood": "Íntimo y emocional", "overlayOpacity": 0.4}'
+              - column:
+                  name: status
+                  value: active
+              - column:
+                  name: launch_date
+                  value: '2025-02-01'
+
+        - insert:
+            tableName: collections
+            columns:
+              - column:
+                  name: id
+                  value: col-002
+              - column:
+                  name: slug
+                  value: eternal-silver
+              - column:
+                  name: name
+                  value: Eternal Silver
+              - column:
+                  name: type_id
+                  value: aesthetic
+              - column:
+                  name: tagline
+                  value: La plata no pasa de moda. Permanece.
+              - column:
+                  name: description
+                  value: Piezas atemporales en plata .925 para quien no sigue tendencias.
+              - column:
+                  name: story
+                  value: Hay joyas que se compran. Hay joyas que se heredan. Eternal Silver es para quienes piensan en permanencia. Cada pieza está diseñada para vivir más allá de las temporadas.
+              - column:
+                  name: hero_image
+                  value: /assets/images/collections/eternal-silver/hero.jpg
+              - column:
+                  name: hero_image_alt
+                  value: Colección Eternal Silver — Queen Arts
+              - column:
+                  name: story_image
+                  value: /assets/images/collections/eternal-silver/story.jpg
+              - column:
+                  name: seo_title
+                  value: Eternal Silver — Colección Queen Arts
+              - column:
+                  name: seo_description
+                  value: Joyería atemporal en plata .925. Colección Eternal Silver de Queen Arts.
+              - column:
+                  name: visual_theme
+                  value: '{"primaryColor": "#5A4A42", "accentColor": "#D8C3A5", "mood": "Atemporal y mineral", "overlayOpacity": 0.3}'
+              - column:
+                  name: status
+                  value: active
+              - column:
+                  name: launch_date
+                  value: '2025-01-10'
+
+        - insert:
+            tableName: collections
+            columns:
+              - column:
+                  name: id
+                  value: col-003
+              - column:
+                  name: slug
+                  value: dia-de-la-madre
+              - column:
+                  name: name
+                  value: Día de la Madre 2025
+              - column:
+                  name: type_id
+                  value: temporal
+              - column:
+                  name: tagline
+                  value: Por quien te dio el mundo. Y no pide nada.
+              - column:
+                  name: description
+                  value: Una selección especial para celebrar a mamá.
+              - column:
+                  name: hero_image
+                  value: /assets/images/collections/dia-madre/hero.jpg
+              - column:
+                  name: hero_image_alt
+                  value: Colección Día de la Madre — Queen Arts
+              - column:
+                  name: seo_title
+                  value: Día de la Madre — Regalos Queen Arts
+              - column:
+                  name: seo_description
+                  value: Joyas especiales para el Día de la Madre. Regalos con significado de Queen Arts.
+              - column:
+                  name: visual_theme
+                  value: '{"primaryColor": "#8E6A7D", "accentColor": "#D8B7B0", "mood": "Cálido y gratificante", "overlayOpacity": 0.35}'
+              - column:
+                  name: status
+                  value: upcoming
+              - column:
+                  name: launch_date
+                  value: '2025-05-01'
+
+        # ============================================================
+        # RELACIONES ENTRE COLECCIONES
+        # ============================================================
+        - insert:
+            tableName: collection_related
+            columns:
+              - column:
+                  name: collection_id
+                  value: col-001
+              - column:
+                  name: related_collection_id
+                  value: col-002
+              - column:
+                  name: sort_order
+                  value: 1
+
+        - insert:
+            tableName: collection_related
+            columns:
+              - column:
+                  name: collection_id
+                  value: col-001
+              - column:
+                  name: related_collection_id
+                  value: col-003
+              - column:
+                  name: sort_order
+                  value: 2
+
+        - insert:
+            tableName: collection_related
+            columns:
+              - column:
+                  name: collection_id
+                  value: col-002
+              - column:
+                  name: related_collection_id
+                  value: col-001
+              - column:
+                  name: sort_order
+                  value: 1
+
+      rollback:
+        - delete:
+            tableName: collection_related
+        - delete:
+            tableName: collections
+        - delete:
+            tableName: notification_templates
+        - delete:
+            tableName: gift_occasions
+        - delete:
+            tableName: collection_types
+        - delete:
+            tableName: tags
+        - delete:
+            tableName: categories
